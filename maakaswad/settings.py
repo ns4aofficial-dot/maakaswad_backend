@@ -15,10 +15,14 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-secret-key')
 
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.environ.get(
-    "DJANGO_ALLOWED_HOSTS",
-    "localhost,127.0.0.1,[::1],maakaswad.onrender.com"
-).split(",")
+ALLOWED_HOSTS = [
+    "maakaswad.onrender.com",
+    "localhost",
+    "127.0.0.1",
+    "[::1]",
+    "*",  # allow everything (for testing)
+]
+
 
 # =========================
 # 📦 Installed Applications
