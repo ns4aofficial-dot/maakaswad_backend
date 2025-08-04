@@ -55,7 +55,7 @@ AUTHENTICATION_BACKENDS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # ✅ static files
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # ✅ static files with Whitenoise
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -67,10 +67,13 @@ MIDDLEWARE = [
 # =========================
 # 🌐 CORS Settings
 # =========================
-CORS_ALLOW_ALL_ORIGINS = DEBUG
-CORS_ALLOWED_ORIGINS = [] if DEBUG else [
-    "https://maakaswad.onrender.com",
-]
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = [
+        "https://maakaswad.onrender.com",
+    ]
 
 # =========================
 # 🔧 Project Settings
@@ -133,7 +136,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Whitenoise settings
+# ✅ Whitenoise: Serve compressed static files
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # =========================
