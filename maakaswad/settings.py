@@ -23,6 +23,13 @@ ALLOWED_HOSTS = [
     "*",  # allow everything (for testing)
 ]
 
+# ✅ Add CSRF Trusted Origins
+CSRF_TRUSTED_ORIGINS = [
+    "https://maakaswad.onrender.com",
+    "http://localhost",
+    "http://127.0.0.1",
+]
+
 # =========================
 # 📦 Installed Applications
 # =========================
@@ -61,7 +68,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',  # ✅ static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # Removed CsrfViewMiddleware to avoid Flutter CSRF errors
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -142,17 +149,16 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',  # ✅ Signup/Login without auth
     ],
-    'DEFAULT_RENDERER_CLASSES': (
+    'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
-    ),
-    'DEFAULT_PARSER_CLASSES': (
+    ],
+    'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
-    ),
+    ],
 }
 
 # =========================
