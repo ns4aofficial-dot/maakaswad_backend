@@ -19,3 +19,6 @@ razorpay
 
 # Static Files
 whitenoise
+
+# Build Tools
+setuptools>=70.0.0
