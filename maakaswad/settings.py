@@ -15,11 +15,10 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-secret-key')
 
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-# ✅ Accept all hosts (fix for Render health check 400 issue)
 ALLOWED_HOSTS = os.environ.get(
     "DJANGO_ALLOWED_HOSTS",
-    "*"
-).split()
+    "localhost,127.0.0.1,[::1],maakaswad.onrender.com"
+).split(",")
 
 # =========================
 # 📦 Installed Applications
@@ -134,6 +133,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Whitenoise settings
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # =========================
