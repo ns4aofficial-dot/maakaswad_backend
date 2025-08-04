@@ -23,7 +23,6 @@ ALLOWED_HOSTS = [
     "*",  # allow everything (for testing)
 ]
 
-
 # =========================
 # 📦 Installed Applications
 # =========================
@@ -71,10 +70,7 @@ MIDDLEWARE = [
 # =========================
 # 🌐 CORS Settings
 # =========================
-CORS_ALLOW_ALL_ORIGINS = DEBUG
-CORS_ALLOWED_ORIGINS = [] if DEBUG else [
-    "https://maakaswad.onrender.com",
-]
+CORS_ALLOW_ALL_ORIGINS = True  # ✅ Allow requests from all origins
 
 # =========================
 # 🔧 Project Settings
@@ -149,7 +145,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',  # ✅ Signup/Login without auth
     ],
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
