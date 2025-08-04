@@ -1,0 +1,15 @@
+# Ignore Visual Studio temp files
+.vs/
+*.vsidx
+
+# Python & Django
+__pycache__/
+*.pyc
+*.pyo
+*.sqlite3
+/media/
+staticfiles/
+
+# Environment
+venv/
+.env
