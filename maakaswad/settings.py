@@ -100,7 +100,8 @@ WSGI_APPLICATION = 'maakaswad.wsgi.application'
 # =========================
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL', f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
+        default=os.environ.get('DATABASE_URL', f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+        conn_max_age=600
     )
 }
 
@@ -157,8 +158,8 @@ REST_FRAMEWORK = {
 # =========================
 # 🔑 Razorpay API Keys
 # =========================
-RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', 'your_test_key_id')
-RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', 'your_test_key_secret')
+RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
+RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
 
 # =========================
 # 📬 Email Setup
