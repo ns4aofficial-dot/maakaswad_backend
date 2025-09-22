@@ -2,15 +2,26 @@
 from .models import Order, OrderItem, DeliveryAddress
 from food.models import FoodItem
 
-
-# ✅ Delivery Address Serializer (now includes latitude & longitude)
+# ==========================
+# Delivery Address Serializer
+# ==========================
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
-        fields = ['id', 'address', 'city', 'pincode', 'phone', 'latitude', 'longitude']
+        fields = [
 
+            'full_name',  # ✅ Now included
+            'address',
+            'city',
+            'pincode',
+            'phone',
+            'latitude',
+            'longitude'
+        ]
 
-# ✅ Order Item Serializer (used for viewing items in order)
+# ==========================
+# Order Item Serializer
+# ==========================
 class OrderItemSerializer(serializers.ModelSerializer):
     food_item_name = serializers.CharField(source='food_item.name', read_only=True)
     food_item_price = serializers.DecimalField(
@@ -19,10 +30,17 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'food_item', 'food_item_name', 'food_item_price', 'quantity']
+        fields = [
+            'id',
+            'food_item',
+            'food_item_name',
+            'food_item_price',
+            'quantity'
+        ]
 
-
-# ✅ Main Order Serializer (now includes driver location fields)
+# ==========================
+# Main Order Serializer
+# ==========================
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     delivery_address = DeliveryAddressSerializer(read_only=True)
@@ -42,8 +60,9 @@ class OrderSerializer(serializers.ModelSerializer):
             'items',
         ]
 
-
-# ✅ Used to place individual order items
+# ==========================
+# Serializer for placing individual order items
+# ==========================
 class PlaceOrderItemSerializer(serializers.Serializer):
     food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
     quantity = serializers.IntegerField(min_value=1)
@@ -53,8 +72,9 @@ class PlaceOrderItemSerializer(serializers.Serializer):
             raise serializers.ValidationError("This food item is not available.")
         return food_item
 
-
-# ✅ Used to place an order (NO ownership check on delivery_address)
+# ==========================
+# Serializer for placing an order
+# ==========================
 class PlaceOrderSerializer(serializers.Serializer):
     delivery_address_id = serializers.IntegerField()
     items = PlaceOrderItemSerializer(many=True)
@@ -69,7 +89,7 @@ class PlaceOrderSerializer(serializers.Serializer):
                 'delivery_address_id': ['Invalid delivery address.']
             })
 
-        attrs['delivery_address'] = address  # ✅ Pass the address for use in create()
+        attrs['delivery_address'] = address  # ✅ Pass address to create()
         return attrs
 
     def create(self, validated_data):
@@ -79,7 +99,7 @@ class PlaceOrderSerializer(serializers.Serializer):
 
         total_amount = 0
 
-        # ✅ Create Order
+        # Create Order
         order = Order.objects.create(
             user=user,
             delivery_address=address,
@@ -87,14 +107,14 @@ class PlaceOrderSerializer(serializers.Serializer):
             status='pending'
         )
 
-        # ✅ Create each OrderItem and calculate total
+        # Create each OrderItem and calculate total
         for item in items_data:
             food = item['food_item']
             quantity = item['quantity']
             OrderItem.objects.create(order=order, food_item=food, quantity=quantity)
             total_amount += food.price * quantity
 
-        # ✅ Save updated total amount
+        # Save updated total amount
         order.total_amount = total_amount
         order.save()
 

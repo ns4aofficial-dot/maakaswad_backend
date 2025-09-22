@@ -24,13 +24,19 @@ class PlaceOrderView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ✅ List all orders for the logged-in user
+# ✅ List all orders for the logged-in user (fast queryset)
 class UserOrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user).order_by('-created_at')
+        # Use select_related/prefetch_related to reduce DB queries
+        return (
+            Order.objects.filter(user=self.request.user)
+            .select_related("delivery_address")
+            .prefetch_related("items__food_item")
+            .order_by("-created_at")
+        )
 
 
 # ✅ Get details of a specific order (owned by user)
@@ -40,7 +46,7 @@ class UserOrderDetailView(generics.RetrieveAPIView):
     lookup_field = 'pk'
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user)
+        return Order.objects.filter(user=self.request.user).select_related("delivery_address").prefetch_related("items__food_item")
 
 
 # ✅ Cancel an order within 2 minutes of placing
@@ -51,24 +57,30 @@ class CancelOrderView(APIView):
         try:
             order = Order.objects.get(id=order_id, user=request.user)
 
+            # Only pending orders can be cancelled
             if order.status.lower() != "pending":
                 return Response(
-                    {"detail": "❌ Order cannot be cancelled (already processed)."},
+                    {"detail": "Order cannot be cancelled (already processed)."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            if now() - order.created_at > timedelta(minutes=2):
+            # Check cancel window (2 minutes)
+            elapsed = now() - order.created_at
+            if elapsed > timedelta(minutes=2):
                 return Response(
-                    {"detail": "⏰ Cancel period expired. You cannot cancel this order."},
+                    {"detail": "Cancel period expired. You cannot cancel this order."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            order.status = "Cancelled"
-            order.save()
-            return Response({"detail": "✅ Order cancelled successfully."}, status=status.HTTP_200_OK)
+            # Use the lowercase status value that matches model choices
+            order.status = "cancelled"
+            order.save(update_fields=["status"])
+            return Response({"detail": "Order cancelled successfully."}, status=status.HTTP_200_OK)
 
         except Order.DoesNotExist:
-            return Response({"detail": "❌ Order not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"detail": f"Server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # ✅ Create a new delivery address
@@ -105,37 +117,41 @@ class TrackOrderView(APIView):
 
     def get(self, request, order_id):
         try:
-            order = Order.objects.select_related("delivery_address").get(id=order_id, user=request.user)
+            # Fetch order with delivery_address (faster)
+            order = Order.objects.select_related("delivery_address").filter(id=order_id, user=request.user).first()
+            if not order:
+                return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            delivery_address = getattr(order, "delivery_address", None)
-            restaurant = getattr(order, "restaurant", None)  # Optional, if added later
+            delivery_address = order.delivery_address
+            # restaurant may not exist on Order model yet — guard it
+            restaurant = getattr(order, "restaurant", None)
 
             data = {
                 "id": order.id,
                 "status": order.status,
-                "total_price": str(order.total_amount),  # ✅ fixed field name
+                "total_price": str(order.total_amount),
                 "created_at": order.created_at.strftime("%Y-%m-%d %H:%M:%S"),
 
-                # Driver location
+                # Driver location (fallback to None or sensible default)
                 "driver_location": {
-                    "latitude": order.driver_latitude or 17.3850,
-                    "longitude": order.driver_longitude or 78.4867,
+                    "latitude": float(order.driver_latitude) if order.driver_latitude is not None else None,
+                    "longitude": float(order.driver_longitude) if order.driver_longitude is not None else None,
                 },
 
-                # Destination (user delivery address, fallback values if None)
+                # Destination (user delivery address, fallback to None)
                 "destination": {
-                    "latitude": getattr(delivery_address, "latitude", 17.4000),
-                    "longitude": getattr(delivery_address, "longitude", 78.4800),
+                    "latitude": float(getattr(delivery_address, "latitude", None)) if delivery_address else None,
+                    "longitude": float(getattr(delivery_address, "longitude", None)) if delivery_address else None,
                 },
 
-                # Restaurant location (dummy if None)
-                "restaurant_latitude": getattr(restaurant, "latitude", 17.3850),
-                "restaurant_longitude": getattr(restaurant, "longitude", 78.4867),
+                # Restaurant location (if available)
+                "restaurant_location": {
+                    "latitude": float(getattr(restaurant, "latitude", None)) if restaurant else None,
+                    "longitude": float(getattr(restaurant, "longitude", None)) if restaurant else None,
+                },
             }
 
             return Response(data, status=status.HTTP_200_OK)
 
-        except Order.DoesNotExist:
-            return Response({"detail": "❌ Order not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({"detail": f"⚠️ Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"detail": f"Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

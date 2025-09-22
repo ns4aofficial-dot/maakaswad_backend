@@ -8,6 +8,7 @@ class DeliveryAddress(models.Model):
     Stores delivery address details associated with a user.
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="delivery_addresses")
+    full_name = models.CharField(max_length=100, null=True, blank=True)  # ✅ Added field
     address = models.TextField()
     city = models.CharField(max_length=100)
     pincode = models.CharField(max_length=10)
@@ -18,7 +19,7 @@ class DeliveryAddress(models.Model):
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.address}, {self.city} ({self.pincode})"
+        return f"{self.full_name or ''} - {self.address}, {self.city} ({self.pincode})"
 
     class Meta:
         verbose_name_plural = "Delivery Addresses"
@@ -68,4 +69,4 @@ class OrderItem(models.Model):
 
     class Meta:
         verbose_name = "Order Item"
-        verbose_name_plural = "Order Items"
+        verbose_name_plural = "Order Items"
