@@ -1,4 +1,5 @@
-﻿from rest_framework.views import APIView
+﻿from django.db.models import Q
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.permissions import AllowAny
@@ -7,6 +8,8 @@ from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.conf import settings
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 from .serializers import (
     UserSerializer,
@@ -20,6 +23,10 @@ import traceback
 
 User = get_user_model()
 
+# 🩺 Health Check View
+@csrf_exempt
+def health_check(request):
+    return JsonResponse({"status": "ok"})
 
 # ✅ Register View
 class RegisterView(APIView):
@@ -41,8 +48,7 @@ class RegisterView(APIView):
             traceback.print_exc()
             return Response({'detail': 'Server error in Register'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-# ✅ Login View
+# ✅ Login View (Optimized with Q lookup)
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -52,17 +58,18 @@ class LoginView(APIView):
             password = request.data.get('password')
 
             if not identifier or not password:
-                return Response({'detail': 'Please provide identifier and password'},
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'detail': 'Please provide identifier and password'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            try:
-                if "@" in identifier:
-                    user = User.objects.get(email__iexact=identifier)
-                elif identifier.isdigit():
-                    user = User.objects.get(phone=identifier)
-                else:
-                    user = User.objects.get(username__iexact=identifier)
-            except User.DoesNotExist:
+            user = User.objects.filter(
+                Q(email__iexact=identifier) |
+                Q(phone=identifier) |
+                Q(username__iexact=identifier)
+            ).first()
+
+            if not user:
                 return Response({'detail': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
             if not user.check_password(password):
@@ -77,15 +84,17 @@ class LoginView(APIView):
                     'username': user.username,
                     'email': user.email,
                     'phone': user.phone,
-                    'notifications_enabled': user.notifications_enabled,
+                    'notifications_enabled': getattr(user, 'notifications_enabled', False),
                 }
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
             print("❌ Error in LoginView:", str(e))
             traceback.print_exc()
-            return Response({'detail': 'Server error in Login'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+            return Response(
+                {'detail': 'Server error in Login'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ✅ Logout View
 class LogoutView(APIView):
@@ -99,7 +108,6 @@ class LogoutView(APIView):
             print("❌ Error in LogoutView:", str(e))
             traceback.print_exc()
             return Response({'detail': 'Server error in Logout'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 # ✅ User Profile View
 class UserProfileView(APIView):
@@ -125,7 +133,6 @@ class UserProfileView(APIView):
             traceback.print_exc()
             return Response({'detail': 'Server error updating profile'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 # ✅ Notification Settings View
 class NotificationSettingsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -145,7 +152,6 @@ class NotificationSettingsView(APIView):
             traceback.print_exc()
             return Response({'detail': 'Server error updating notifications'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 # ✅ Delivery Address Views
 class DeliveryAddressListCreateView(ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -162,14 +168,12 @@ class DeliveryAddressListCreateView(ListCreateAPIView):
             traceback.print_exc()
             raise
 
-
 class DeliveryAddressDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DeliveryAddressSerializer
 
     def get_queryset(self):
         return DeliveryAddress.objects.filter(user=self.request.user)
-
 
 # ✅ Forgot Password View
 class ForgotPasswordView(APIView):
@@ -183,12 +187,9 @@ class ForgotPasswordView(APIView):
         try:
             user = User.objects.get(email=email)
             reset_token = get_random_string(32)
-
-            # Store reset token temporarily (could use a model or cache)
             user.reset_token = reset_token
             user.save(update_fields=[])
 
-            # Send reset email (simple example)
             send_mail(
                 subject="Password Reset Request",
                 message=f"Use this token to reset your password: {reset_token}",
@@ -200,7 +201,6 @@ class ForgotPasswordView(APIView):
 
         except User.DoesNotExist:
             return Response({'detail': 'User with this email does not exist'}, status=status.HTTP_404_NOT_FOUND)
-
 
 # ✅ Reset Password View
 class ResetPasswordView(APIView):
