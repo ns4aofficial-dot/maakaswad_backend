@@ -8,13 +8,13 @@ class DeliveryAddress(models.Model):
     Stores delivery address details associated with a user.
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="delivery_addresses")
-    full_name = models.CharField(max_length=100, null=True, blank=True)  # ✅ Added field
+    full_name = models.CharField(max_length=100, null=True, blank=True)  # Full name for recipient
     address = models.TextField()
     city = models.CharField(max_length=100)
     pincode = models.CharField(max_length=10)
     phone = models.CharField(max_length=15)
-    
-    # ✅ New fields for map integration
+
+    # Optional map integration fields
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
@@ -45,7 +45,7 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
 
-    # ✅ Optional: Live driver location tracking
+    # Optional live driver location tracking
     driver_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     driver_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
@@ -69,4 +69,4 @@ class OrderItem(models.Model):
 
     class Meta:
         verbose_name = "Order Item"
-        verbose_name_plural = "Order Items"
+        verbose_name_plural = "Order Items"
