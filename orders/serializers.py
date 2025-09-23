@@ -8,7 +8,7 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         model = DeliveryAddress
         fields = [
             'id',
-            'full_name',  # ✅ Include full_name
+            'full_name',  # Include full name
             'address',
             'city',
             'pincode',
@@ -80,14 +80,24 @@ class PlaceOrderSerializer(serializers.Serializer):
         items_data = validated_data['items']
 
         total_amount = 0
-        order = Order.objects.create(user=user, delivery_address=address, total_amount=0, status='pending')
 
+        # ✅ Create order
+        order = Order.objects.create(
+            user=user,
+            delivery_address=address,
+            total_amount=0,
+            status='pending'
+        )
+
+        # ✅ Create order items and calculate total amount
         for item in items_data:
             food = item['food_item']
             quantity = item['quantity']
             OrderItem.objects.create(order=order, food_item=food, quantity=quantity)
             total_amount += food.price * quantity
 
+        # ✅ Update order total
         order.total_amount = total_amount
         order.save()
+
         return order
