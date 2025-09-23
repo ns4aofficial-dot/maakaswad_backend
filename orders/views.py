@@ -11,8 +11,7 @@ from .serializers import (
     DeliveryAddressSerializer,
 )
 
-
-# ✅ Place a new order
+# ✅ Place a new order (returns order_id for frontend)
 class PlaceOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -20,17 +19,19 @@ class PlaceOrderView(APIView):
         serializer = PlaceOrderSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             order = serializer.save()
-            return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+            return Response({
+                "order_id": order.id,
+                "order": OrderSerializer(order).data
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ✅ List all orders for the logged-in user (fast queryset)
+# ✅ List all orders for the logged-in user
 class UserOrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        # Use select_related/prefetch_related to reduce DB queries
         return (
             Order.objects.filter(user=self.request.user)
             .select_related("delivery_address")
@@ -39,14 +40,16 @@ class UserOrderListView(generics.ListAPIView):
         )
 
 
-# ✅ Get details of a specific order (owned by user)
+# ✅ Get details of a specific order
 class UserOrderDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = OrderSerializer
     lookup_field = 'pk'
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user).select_related("delivery_address").prefetch_related("items__food_item")
+        return Order.objects.filter(user=self.request.user) \
+            .select_related("delivery_address") \
+            .prefetch_related("items__food_item")
 
 
 # ✅ Cancel an order within 2 minutes of placing
@@ -57,14 +60,12 @@ class CancelOrderView(APIView):
         try:
             order = Order.objects.get(id=order_id, user=request.user)
 
-            # Only pending orders can be cancelled
             if order.status.lower() != "pending":
                 return Response(
                     {"detail": "Order cannot be cancelled (already processed)."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Check cancel window (2 minutes)
             elapsed = now() - order.created_at
             if elapsed > timedelta(minutes=2):
                 return Response(
@@ -72,7 +73,6 @@ class CancelOrderView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Use the lowercase status value that matches model choices
             order.status = "cancelled"
             order.save(update_fields=["status"])
             return Response({"detail": "Order cancelled successfully."}, status=status.HTTP_200_OK)
@@ -117,13 +117,14 @@ class TrackOrderView(APIView):
 
     def get(self, request, order_id):
         try:
-            # Fetch order with delivery_address (faster)
-            order = Order.objects.select_related("delivery_address").filter(id=order_id, user=request.user).first()
+            order = Order.objects.select_related("delivery_address").filter(
+                id=order_id, user=request.user
+            ).first()
+
             if not order:
                 return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
             delivery_address = order.delivery_address
-            # restaurant may not exist on Order model yet — guard it
             restaurant = getattr(order, "restaurant", None)
 
             data = {
@@ -131,20 +132,14 @@ class TrackOrderView(APIView):
                 "status": order.status,
                 "total_price": str(order.total_amount),
                 "created_at": order.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-
-                # Driver location (fallback to None or sensible default)
                 "driver_location": {
                     "latitude": float(order.driver_latitude) if order.driver_latitude is not None else None,
                     "longitude": float(order.driver_longitude) if order.driver_longitude is not None else None,
                 },
-
-                # Destination (user delivery address, fallback to None)
                 "destination": {
                     "latitude": float(getattr(delivery_address, "latitude", None)) if delivery_address else None,
                     "longitude": float(getattr(delivery_address, "longitude", None)) if delivery_address else None,
                 },
-
-                # Restaurant location (if available)
                 "restaurant_location": {
                     "latitude": float(getattr(restaurant, "latitude", None)) if restaurant else None,
                     "longitude": float(getattr(restaurant, "longitude", None)) if restaurant else None,
