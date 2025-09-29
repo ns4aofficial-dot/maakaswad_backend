@@ -9,7 +9,7 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         model = DeliveryAddress
         fields = [
             'id',
-            'full_name',      # ✅ include recipient’s name
+            'full_name',
             'address',
             'city',
             'pincode',
@@ -34,10 +34,10 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'food_item', 'food_item_name', 'food_item_price', 'quantity']
 
 
-# ✅ Main Order Serializer
+# ✅ Main Order Serializer (updated for safety)
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
-    delivery_address = DeliveryAddressSerializer(read_only=True)
+    delivery_address = serializers.SerializerMethodField()
     user = serializers.StringRelatedField(read_only=True)
 
     class Meta:
@@ -48,14 +48,19 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_address',
             'created_at',
             'status',
-            'total_price',        # ✅ fixed to match model
-            'driver_latitude',    # if you have these fields in your model
+            'total_price',
+            'driver_latitude',
             'driver_longitude',
             'items',
         ]
 
+    def get_delivery_address(self, obj):
+        if obj.delivery_address:
+            return DeliveryAddressSerializer(obj.delivery_address).data
+        return None
 
-# ✅ PlaceOrderItemSerializer
+
+# ✅ Serializer for individual order items during order placement
 class PlaceOrderItemSerializer(serializers.Serializer):
     food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
     quantity = serializers.IntegerField(min_value=1)
@@ -66,7 +71,7 @@ class PlaceOrderItemSerializer(serializers.Serializer):
         return food_item
 
 
-# ✅ PlaceOrderSerializer
+# ✅ Serializer to place an order
 class PlaceOrderSerializer(serializers.Serializer):
     delivery_address_id = serializers.IntegerField()
     items = PlaceOrderItemSerializer(many=True)
@@ -88,7 +93,8 @@ class PlaceOrderSerializer(serializers.Serializer):
         items_data = validated_data['items']
 
         total_price = 0
-        # ✅ use total_price to match Order model
+
+        # Create order
         order = Order.objects.create(
             user=user,
             delivery_address=address,
@@ -96,16 +102,20 @@ class PlaceOrderSerializer(serializers.Serializer):
             status='pending'
         )
 
+        # Create order items
         for item in items_data:
             food = item['food_item']
             quantity = item['quantity']
+
             OrderItem.objects.create(
                 order=order,
                 food_item=food,
                 quantity=quantity
             )
+
             total_price += food.price * quantity
 
         order.total_price = total_price
         order.save()
+
         return order
