@@ -48,7 +48,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_address',
             'created_at',
             'status',
-            'total_price',
+            'total_amount',
             'driver_latitude',
             'driver_longitude',
             'items',
