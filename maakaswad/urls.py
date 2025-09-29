@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 from django.http import JsonResponse
 from django.views.static import serve
 
-# ✅ Health check view
+# ✅ Health Check View
 def health_check(request):
     return JsonResponse({"status": "ok", "message": "Maakaswad backend running!"})
 
@@ -31,14 +31,14 @@ urlpatterns = [
     path('api/payments/', include('payments.urls')),
 ]
 
-# ✅ Media files in debug
+# ✅ Serve media during development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# ✅ Static files in debug
+# ✅ Serve static files during development
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-# ✅ Whitenoise fallback for production
+# ✅ Fallback for production with Whitenoise
 if not settings.DEBUG:
     urlpatterns += [
         re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),

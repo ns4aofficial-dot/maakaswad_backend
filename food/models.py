@@ -23,40 +23,6 @@ class FoodItem(models.Model):
         return self.name
 
 
-# ✅ Orders
-class Order(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('preparing', 'Preparing'),
-        ('on_the_way', 'On the Way'),
-        ('delivered', 'Delivered'),
-        ('cancelled', 'Cancelled'),
-    ]
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='food_orders'
-    )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    total_price = models.DecimalField(max_digits=10, decimal_places=2)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Food Order #{self.id} - {self.user}"
-
-
-# ✅ Items inside an Order
-class OrderItem(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='food_items')
-    food_item = models.ForeignKey(FoodItem, on_delete=models.CASCADE, related_name='food_order_items')
-    quantity = models.PositiveIntegerField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-
-    def __str__(self):
-        return f"{self.food_item.name} x {self.quantity} (Order #{self.order.id})"
-
-
 # ✅ Favorite Items
 class Favorite(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='favorites')
@@ -64,7 +30,7 @@ class Favorite(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('user', 'food_item')  # Prevent duplicate favorites
+        unique_together = ('user', 'food_item')
 
     def __str__(self):
         return f"{self.user} ❤️ {self.food_item.name}"

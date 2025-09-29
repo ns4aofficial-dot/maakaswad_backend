@@ -2,13 +2,14 @@
 from .models import DeliveryAddress, Order, OrderItem
 from food.models import FoodItem
 
+
 # ✅ Delivery Address Serializer
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
         fields = [
             'id',
-            'full_name',
+            'full_name',      # ✅ include recipient’s name
             'address',
             'city',
             'pincode',
@@ -17,16 +18,21 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
             'longitude',
         ]
 
+
 # ✅ Order Item Serializer
 class OrderItemSerializer(serializers.ModelSerializer):
     food_item_name = serializers.CharField(source='food_item.name', read_only=True)
     food_item_price = serializers.DecimalField(
-        source='food_item.price', max_digits=8, decimal_places=2, read_only=True
+        source='food_item.price',
+        max_digits=8,
+        decimal_places=2,
+        read_only=True
     )
 
     class Meta:
         model = OrderItem
         fields = ['id', 'food_item', 'food_item_name', 'food_item_price', 'quantity']
+
 
 # ✅ Main Order Serializer
 class OrderSerializer(serializers.ModelSerializer):
@@ -42,16 +48,23 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_address',
             'created_at',
             'status',
-            'total_amount',
-            'driver_latitude',
+            'total_price',        # ✅ fixed to match model
+            'driver_latitude',    # if you have these fields in your model
             'driver_longitude',
             'items',
         ]
 
+
 # ✅ PlaceOrderItemSerializer
 class PlaceOrderItemSerializer(serializers.Serializer):
-    food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.filter(is_available=True))
+    food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
     quantity = serializers.IntegerField(min_value=1)
+
+    def validate_food_item(self, food_item):
+        if not food_item.is_available:
+            raise serializers.ValidationError("This food item is not available.")
+        return food_item
+
 
 # ✅ PlaceOrderSerializer
 class PlaceOrderSerializer(serializers.Serializer):
@@ -59,14 +72,12 @@ class PlaceOrderSerializer(serializers.Serializer):
     items = PlaceOrderItemSerializer(many=True)
 
     def validate(self, attrs):
-        # Validate delivery address belongs to user
         address_id = attrs.get('delivery_address_id')
-        user = self.context['request'].user
         try:
-            address = DeliveryAddress.objects.get(id=address_id, user=user)
+            address = DeliveryAddress.objects.get(id=address_id)
         except DeliveryAddress.DoesNotExist:
             raise serializers.ValidationError({
-                'delivery_address_id': ['Invalid delivery address for this user.']
+                'delivery_address_id': ['Invalid delivery address.']
             })
         attrs['delivery_address'] = address
         return attrs
@@ -76,25 +87,25 @@ class PlaceOrderSerializer(serializers.Serializer):
         address = validated_data['delivery_address']
         items_data = validated_data['items']
 
-        total_amount = 0
-
-        # ✅ Create order
+        total_price = 0
+        # ✅ use total_price to match Order model
         order = Order.objects.create(
             user=user,
             delivery_address=address,
-            total_amount=0,
+            total_price=0,
             status='pending'
         )
 
-        # ✅ Create order items and calculate total
         for item in items_data:
             food = item['food_item']
             quantity = item['quantity']
-            OrderItem.objects.create(order=order, food_item=food, quantity=quantity)
-            total_amount += food.price * quantity
+            OrderItem.objects.create(
+                order=order,
+                food_item=food,
+                quantity=quantity
+            )
+            total_price += food.price * quantity
 
-        # ✅ Update order total
-        order.total_amount = total_amount
+        order.total_price = total_price
         order.save()
-
         return order
