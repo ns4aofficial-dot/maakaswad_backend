@@ -23,7 +23,6 @@ class AddToCartView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         cart, _ = Cart.objects.get_or_create(user=self.request.user)
-        # If item already in cart, update quantity
         food_item = serializer.validated_data['food_item']
         quantity = serializer.validated_data.get('quantity', 1)
 
@@ -41,8 +40,32 @@ class AddToCartView(generics.CreateAPIView):
 class CartItemDeleteView(generics.DestroyAPIView):
     serializer_class = CartItemSerializer
     permission_classes = [permissions.IsAuthenticated]
-    lookup_url_kwarg = 'pk'  # pk of CartItem
+    lookup_url_kwarg = 'pk'
 
     def get_queryset(self):
         cart, _ = Cart.objects.get_or_create(user=self.request.user)
         return CartItem.objects.filter(cart=cart)
+
+
+# ✅ Update a CartItem quantity
+class CartItemUpdateView(generics.UpdateAPIView):
+    serializer_class = CartItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_url_kwarg = 'pk'
+
+    def get_queryset(self):
+        cart, _ = Cart.objects.get_or_create(user=self.request.user)
+        return CartItem.objects.filter(cart=cart)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+
+        quantity = request.data.get("quantity")
+        if quantity is None or int(quantity) <= 0:
+            return Response({"error": "Quantity must be greater than 0"}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance.quantity = int(quantity)
+        instance.save()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
