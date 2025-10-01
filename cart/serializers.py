@@ -19,3 +19,11 @@ class CartItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartItem
         fields = ['id', 'cart', 'food_item', 'food_item_id', 'quantity']
+
+# ✅ Cart Serializer with related items
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(source='cartitem_set', many=True, read_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'created_at', 'items']
