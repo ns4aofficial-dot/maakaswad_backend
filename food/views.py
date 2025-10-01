@@ -11,13 +11,13 @@ from .serializers import (
     SupportTicketSerializer,
 )
 
-# ✅ Category List
+# Category List
 class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
 
-# ✅ Food Items List
+# Food Items List
 class FoodItemListView(generics.ListAPIView):
     serializer_class = FoodItemSerializer
     permission_classes = [AllowAny]
@@ -28,13 +28,19 @@ class FoodItemListView(generics.ListAPIView):
             return FoodItem.objects.filter(category__id=category_id, is_available=True)
         return FoodItem.objects.filter(is_available=True)
 
-# ✅ Delete Food Item
+# Food Item Detail
+class FoodItemDetailView(generics.RetrieveAPIView):
+    queryset = FoodItem.objects.filter(is_available=True)
+    serializer_class = FoodItemSerializer
+    permission_classes = [AllowAny]
+
+# Delete Food Item
 class FoodItemDeleteView(generics.DestroyAPIView):
     queryset = FoodItem.objects.all()
     serializer_class = FoodItemSerializer
     permission_classes = [IsAdminUser]
 
-# ✅ Favorite List
+# Favorite List
 class FavoriteListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -43,7 +49,7 @@ class FavoriteListView(APIView):
         serializer = FavoriteSerializer(favorites, many=True)
         return Response(serializer.data)
 
-# ✅ Toggle Favorite (Add/Remove)
+# Toggle Favorite
 class ToggleFavoriteView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -59,7 +65,7 @@ class ToggleFavoriteView(APIView):
             return Response({'removed': f'{food_item.name} removed from favorites'})
         return Response({'added': f'{food_item.name} added to favorites'})
 
-# ✅ Support Ticket List & Create
+# Support Ticket
 class SupportTicketListCreateView(generics.ListCreateAPIView):
     serializer_class = SupportTicketSerializer
     permission_classes = [IsAuthenticated]
