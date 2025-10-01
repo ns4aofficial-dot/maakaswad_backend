@@ -30,7 +30,6 @@ class UserOrderListView(generics.ListAPIView):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        # Optimize DB queries
         return (
             Order.objects.filter(user=self.request.user)
             .select_related("delivery_address")
@@ -61,14 +60,12 @@ class CancelOrderView(APIView):
         try:
             order = Order.objects.get(id=order_id, user=request.user)
 
-            # Check if the order is still pending
             if order.status.lower() != "pending":
                 return Response(
                     {"detail": "Order cannot be cancelled (already processed)."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Enforce 2-minute cancellation window
             if now() - order.created_at > timedelta(minutes=2):
                 return Response(
                     {"detail": "Cancel period expired. You cannot cancel this order."},
@@ -130,24 +127,21 @@ class TrackOrderView(APIView):
                 return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
             delivery_address = order.delivery_address
-            restaurant = getattr(order, "restaurant", None)  # In case you add it later
+            restaurant = getattr(order, "restaurant", None)
 
             data = {
                 "id": order.id,
                 "status": order.status,
-                "total_price": str(order.total_price),   # ✅ fixed field
+                "total_amount": str(order.total_amount),
                 "created_at": order.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-
                 "driver_location": {
-                    "latitude": float(getattr(order, "driver_latitude", 0.0)) if hasattr(order, "driver_latitude") else None,
-                    "longitude": float(getattr(order, "driver_longitude", 0.0)) if hasattr(order, "driver_longitude") else None,
+                    "latitude": float(getattr(order, "driver_latitude", 0.0)) if order.driver_latitude else None,
+                    "longitude": float(getattr(order, "driver_longitude", 0.0)) if order.driver_longitude else None,
                 },
-
                 "destination": {
-                    "latitude": float(getattr(delivery_address, "latitude", 0.0)) if delivery_address else None,
-                    "longitude": float(getattr(delivery_address, "longitude", 0.0)) if delivery_address else None,
+                    "latitude": float(delivery_address.latitude) if delivery_address and delivery_address.latitude else None,
+                    "longitude": float(delivery_address.longitude) if delivery_address and delivery_address.longitude else None,
                 },
-
                 "restaurant_location": {
                     "latitude": float(getattr(restaurant, "latitude", 0.0)) if restaurant else None,
                     "longitude": float(getattr(restaurant, "longitude", 0.0)) if restaurant else None,

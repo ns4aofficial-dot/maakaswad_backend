@@ -34,7 +34,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'food_item', 'food_item_name', 'food_item_price', 'quantity']
 
 
-# ✅ Main Order Serializer (updated for safety)
+# ✅ Main Order Serializer
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     delivery_address = serializers.SerializerMethodField()
@@ -48,7 +48,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_address',
             'created_at',
             'status',
-            'total_amount',
+            'total_amount',     # ✅ FIXED
             'driver_latitude',
             'driver_longitude',
             'items',
@@ -94,15 +94,15 @@ class PlaceOrderSerializer(serializers.Serializer):
 
         total_price = 0
 
-        # Create order
+        # ✅ Create order
         order = Order.objects.create(
             user=user,
             delivery_address=address,
-            total_price=0,
+            total_amount=0,   # ✅ FIXED
             status='pending'
         )
 
-        # Create order items
+        # ✅ Create order items
         for item in items_data:
             food = item['food_item']
             quantity = item['quantity']
@@ -115,7 +115,7 @@ class PlaceOrderSerializer(serializers.Serializer):
 
             total_price += food.price * quantity
 
-        order.total_price = total_price
+        order.total_amount = total_price   # ✅ FIXED
         order.save()
 
         return order
