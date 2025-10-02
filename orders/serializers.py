@@ -3,7 +3,6 @@ from .models import DeliveryAddress, Order, OrderItem
 from food.models import FoodItem
 
 
-# ✅ Delivery Address Serializer
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
@@ -19,7 +18,6 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         ]
 
 
-# ✅ Order Item Serializer
 class OrderItemSerializer(serializers.ModelSerializer):
     food_item_name = serializers.CharField(source='food_item.name', read_only=True)
     food_item_price = serializers.DecimalField(
@@ -34,7 +32,6 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'food_item', 'food_item_name', 'food_item_price', 'quantity']
 
 
-# ✅ Main Order Serializer
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     delivery_address = serializers.SerializerMethodField()
@@ -48,7 +45,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_address',
             'created_at',
             'status',
-            'total_amount',     # ✅ FIXED
+            'total_amount',
             'driver_latitude',
             'driver_longitude',
             'items',
@@ -60,7 +57,6 @@ class OrderSerializer(serializers.ModelSerializer):
         return None
 
 
-# ✅ Serializer for individual order items during order placement
 class PlaceOrderItemSerializer(serializers.Serializer):
     food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
     quantity = serializers.IntegerField(min_value=1)
@@ -71,7 +67,6 @@ class PlaceOrderItemSerializer(serializers.Serializer):
         return food_item
 
 
-# ✅ Serializer to place an order
 class PlaceOrderSerializer(serializers.Serializer):
     delivery_address_id = serializers.IntegerField()
     items = PlaceOrderItemSerializer(many=True)
@@ -94,15 +89,13 @@ class PlaceOrderSerializer(serializers.Serializer):
 
         total_price = 0
 
-        # ✅ Create order
         order = Order.objects.create(
             user=user,
             delivery_address=address,
-            total_amount=0,   # ✅ FIXED
+            total_amount=0,
             status='pending'
         )
 
-        # ✅ Create order items
         for item in items_data:
             food = item['food_item']
             quantity = item['quantity']
@@ -115,7 +108,28 @@ class PlaceOrderSerializer(serializers.Serializer):
 
             total_price += food.price * quantity
 
-        order.total_amount = total_price   # ✅ FIXED
+        order.total_amount = total_price
         order.save()
 
         return order
+
+
+class DriverLocationUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['driver_latitude', 'driver_longitude']
+
+    def validate(self, attrs):
+        lat = attrs.get("driver_latitude")
+        lon = attrs.get("driver_longitude")
+
+        if lat is None or lon is None:
+            raise serializers.ValidationError("Latitude and Longitude must be provided.")
+
+        if not (-90 <= lat <= 90):
+            raise serializers.ValidationError("Latitude must be between -90 and 90.")
+
+        if not (-180 <= lon <= 180):
+            raise serializers.ValidationError("Longitude must be between -180 and 180.")
+
+        return attrs
