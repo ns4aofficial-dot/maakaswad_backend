@@ -6,7 +6,6 @@ from food.models import FoodItem
 logger = logging.getLogger(__name__)
 
 
-# --- Delivery Address Serializer ---
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
@@ -16,7 +15,6 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         ]
 
 
-# --- Order Item Serializer ---
 class OrderItemSerializer(serializers.ModelSerializer):
     food_item_name = serializers.CharField(source='food_item.name', read_only=True)
     food_item_price = serializers.DecimalField(
@@ -28,21 +26,37 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'food_item', 'food_item_name', 'food_item_price', 'quantity']
 
 
-# --- Order Serializer ---
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     delivery_address = DeliveryAddressSerializer(read_only=True)
     user = serializers.StringRelatedField(read_only=True)
 
+    # New fields for tracking
+    driver_location = serializers.SerializerMethodField()
+    destination = serializers.SerializerMethodField()
+
     class Meta:
         model = Order
         fields = [
             'id', 'user', 'delivery_address', 'created_at', 'status',
-            'total_amount', 'driver_latitude', 'driver_longitude', 'items'
+            'total_amount', 'driver_location', 'destination', 'items'
         ]
 
+    def get_driver_location(self, obj):
+        return {
+            "latitude": obj.driver_latitude or None,
+            "longitude": obj.driver_longitude or None
+        }
 
-# --- Place Order Item Serializer ---
+    def get_destination(self, obj):
+        if obj.delivery_address:
+            return {
+                "latitude": obj.delivery_address.latitude or None,
+                "longitude": obj.delivery_address.longitude or None
+            }
+        return None
+
+
 class PlaceOrderItemSerializer(serializers.Serializer):
     food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
     quantity = serializers.IntegerField(min_value=1)
@@ -54,7 +68,6 @@ class PlaceOrderItemSerializer(serializers.Serializer):
         return food_item
 
 
-# --- Place Order Serializer ---
 class PlaceOrderSerializer(serializers.Serializer):
     delivery_address_id = serializers.IntegerField()
     items = PlaceOrderItemSerializer(many=True)
@@ -117,7 +130,6 @@ class PlaceOrderSerializer(serializers.Serializer):
         return order
 
 
-# --- Driver Location Update Serializer ---
 class DriverLocationUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
@@ -142,7 +154,6 @@ class DriverLocationUpdateSerializer(serializers.ModelSerializer):
         return attrs
 
 
-# --- Accept Order Serializer ---
 class AcceptOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
@@ -155,7 +166,6 @@ class AcceptOrderSerializer(serializers.ModelSerializer):
         return value
 
 
-# --- Reject Order Serializer ---
 class RejectOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
