@@ -41,6 +41,9 @@ class Order(models.Model):
     driver_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     driver_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
+    destination_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    destination_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+
     def __str__(self):
         return f"Order #{self.id} - {self.status.upper()} - {self.user.username}"
 

@@ -31,7 +31,6 @@ class OrderSerializer(serializers.ModelSerializer):
     delivery_address = DeliveryAddressSerializer(read_only=True)
     user = serializers.StringRelatedField(read_only=True)
 
-    # New fields for tracking
     driver_location = serializers.SerializerMethodField()
     destination = serializers.SerializerMethodField()
 
@@ -44,15 +43,15 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_driver_location(self, obj):
         return {
-            "latitude": obj.driver_latitude or None,
-            "longitude": obj.driver_longitude or None
+            "latitude": float(obj.driver_latitude) if obj.driver_latitude is not None else None,
+            "longitude": float(obj.driver_longitude) if obj.driver_longitude is not None else None
         }
 
     def get_destination(self, obj):
         if obj.delivery_address:
             return {
-                "latitude": obj.delivery_address.latitude or None,
-                "longitude": obj.delivery_address.longitude or None
+                "latitude": float(obj.delivery_address.latitude) if obj.delivery_address.latitude is not None else None,
+                "longitude": float(obj.delivery_address.longitude) if obj.delivery_address.longitude is not None else None
             }
         return None
 
