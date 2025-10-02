@@ -1,7 +1,9 @@
-﻿from rest_framework import serializers
+﻿import logging
+from rest_framework import serializers
 from .models import DeliveryAddress, Order, OrderItem
 from food.models import FoodItem
 
+logger = logging.getLogger(__name__)
 
 # ✅ Delivery Address Serializer
 class DeliveryAddressSerializer(serializers.ModelSerializer):
@@ -77,17 +79,26 @@ class PlaceOrderSerializer(serializers.Serializer):
     items = PlaceOrderItemSerializer(many=True)
 
     def validate(self, attrs):
+        request = self.context.get('request')
         address_id = attrs.get('delivery_address_id')
+
+        if not address_id:
+            raise serializers.ValidationError({
+                'delivery_address_id': ['This field is required.']
+            })
+
         try:
-            address = DeliveryAddress.objects.get(id=address_id)
+            address = DeliveryAddress.objects.get(id=address_id, user=request.user)
         except DeliveryAddress.DoesNotExist:
             raise serializers.ValidationError({
-                'delivery_address_id': ['Invalid delivery address.']
+                'delivery_address_id': ['Invalid delivery address for this user.']
             })
+
         attrs['delivery_address'] = address
         return attrs
 
     def create(self, validated_data):
+        logger.info(f"Creating order with data: {validated_data}")
         user = self.context['request'].user
         address = validated_data['delivery_address']
         items_data = validated_data['items']
@@ -105,6 +116,8 @@ class PlaceOrderSerializer(serializers.Serializer):
             food = item['food_item']
             quantity = item['quantity']
 
+            logger.info(f"Adding item: {food.name} x {quantity}")
+
             OrderItem.objects.create(
                 order=order,
                 food_item=food,
@@ -115,6 +128,8 @@ class PlaceOrderSerializer(serializers.Serializer):
 
         order.total_amount = total_price
         order.save()
+
+        logger.info(f"Order #{order.id} created successfully with total: {total_price}")
 
         return order
 

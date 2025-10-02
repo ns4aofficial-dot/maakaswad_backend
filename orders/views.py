@@ -1,4 +1,5 @@
-﻿from datetime import timedelta
+﻿import logging
+from datetime import timedelta
 from django.utils.timezone import now
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -12,6 +13,8 @@ from .serializers import (
     DriverLocationUpdateSerializer
 )
 
+logger = logging.getLogger(__name__)
+
 
 # ✅ Place a new order
 class PlaceOrderView(APIView):
@@ -20,8 +23,13 @@ class PlaceOrderView(APIView):
     def post(self, request):
         serializer = PlaceOrderSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            order = serializer.save()
-            return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+            try:
+                order = serializer.save()
+                return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                logger.error(f"Error placing order: {str(e)}")
+                return Response({"detail": "Failed to place order."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -73,6 +81,7 @@ class CancelOrderView(APIView):
         except Order.DoesNotExist:
             return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            logger.error(f"CancelOrderView error: {str(e)}")
             return Response({"detail": f"Server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -139,6 +148,7 @@ class TrackOrderView(APIView):
             return Response(data, status=status.HTTP_200_OK)
 
         except Exception as e:
+            logger.error(f"TrackOrderView error: {str(e)}")
             return Response({"detail": f"Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -159,6 +169,7 @@ class UpdateDriverLocationView(APIView):
         except Order.DoesNotExist:
             return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            logger.error(f"UpdateDriverLocationView error: {str(e)}")
             return Response({"detail": f"Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -181,6 +192,7 @@ class AcceptOrderView(APIView):
         except Order.DoesNotExist:
             return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            logger.error(f"AcceptOrderView error: {str(e)}")
             return Response({"detail": f"Server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -202,4 +214,5 @@ class RejectOrderView(APIView):
         except Order.DoesNotExist:
             return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            logger.error(f"RejectOrderView error: {str(e)}")
             return Response({"detail": f"Server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
