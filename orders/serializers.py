@@ -10,7 +10,8 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
         fields = [
-            'id', 'full_name', 'address', 'city', 'pincode', 'phone', 'latitude', 'longitude'
+            'id', 'full_name', 'address', 'city', 'pincode', 'phone',
+            'latitude', 'longitude'
         ]
 
 
@@ -29,7 +30,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 # --- Order Serializer ---
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
-    delivery_address = serializers.SerializerMethodField()
+    delivery_address = DeliveryAddressSerializer(read_only=True)
     user = serializers.StringRelatedField(read_only=True)
 
     class Meta:
@@ -38,11 +39,6 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'user', 'delivery_address', 'created_at', 'status',
             'total_amount', 'driver_latitude', 'driver_longitude', 'items'
         ]
-
-    def get_delivery_address(self, obj):
-        if obj.delivery_address:
-            return DeliveryAddressSerializer(obj.delivery_address).data
-        return None
 
 
 # --- Place Order Item Serializer ---
@@ -86,8 +82,7 @@ class PlaceOrderSerializer(serializers.Serializer):
         address = validated_data['delivery_address']
         items_data = validated_data['items']
 
-        total_price = 0
-
+        # Create order with pending status
         order = Order.objects.create(
             user=user,
             delivery_address=address,
@@ -97,6 +92,7 @@ class PlaceOrderSerializer(serializers.Serializer):
 
         logger.info(f"Created order #{order.id}")
 
+        total_price = 0
         for item in items_data:
             food = item['food_item']
             quantity = item['quantity']
@@ -109,13 +105,13 @@ class PlaceOrderSerializer(serializers.Serializer):
                 quantity=quantity
             )
 
-            total_price += food.price * quantity
+            total_price += float(food.price) * quantity
 
+        # Save total
         order.total_amount = total_price
         order.save()
 
         logger.info(f"Order #{order.id} finalized with total: {total_price}")
-
         return order
 
 
