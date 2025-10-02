@@ -4,9 +4,6 @@ from food.models import FoodItem
 
 
 class DeliveryAddress(models.Model):
-    """
-    Stores delivery address details associated with a user.
-    """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="delivery_addresses")
     full_name = models.CharField(max_length=100, null=True, blank=True)
     address = models.TextField()
@@ -14,7 +11,6 @@ class DeliveryAddress(models.Model):
     pincode = models.CharField(max_length=10)
     phone = models.CharField(max_length=15)
 
-    # Location for map integration
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
@@ -27,9 +23,6 @@ class DeliveryAddress(models.Model):
 
 
 class Order(models.Model):
-    """
-    Represents a food order placed by a user.
-    """
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('processing', 'Processing'),
@@ -41,12 +34,10 @@ class Order(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     delivery_address = models.ForeignKey(DeliveryAddress, on_delete=models.SET_NULL, null=True, blank=True)
-    accepted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="accepted_orders")
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
 
-    # Live driver location tracking
     driver_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     driver_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
@@ -58,9 +49,6 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    """
-    Represents individual food items within an order.
-    """
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     food_item = models.ForeignKey(FoodItem, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
