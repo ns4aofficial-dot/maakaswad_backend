@@ -5,30 +5,20 @@ from food.models import FoodItem
 
 logger = logging.getLogger(__name__)
 
-# ✅ Delivery Address Serializer
+# --- Delivery Address Serializer ---
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
         fields = [
-            'id',
-            'full_name',
-            'address',
-            'city',
-            'pincode',
-            'phone',
-            'latitude',
-            'longitude',
+            'id', 'full_name', 'address', 'city', 'pincode', 'phone', 'latitude', 'longitude'
         ]
 
 
-# ✅ Order Item Serializer
+# --- Order Item Serializer ---
 class OrderItemSerializer(serializers.ModelSerializer):
     food_item_name = serializers.CharField(source='food_item.name', read_only=True)
     food_item_price = serializers.DecimalField(
-        source='food_item.price',
-        max_digits=8,
-        decimal_places=2,
-        read_only=True
+        source='food_item.price', max_digits=8, decimal_places=2, read_only=True
     )
 
     class Meta:
@@ -36,7 +26,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'food_item', 'food_item_name', 'food_item_price', 'quantity']
 
 
-# ✅ Order Serializer
+# --- Order Serializer ---
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     delivery_address = serializers.SerializerMethodField()
@@ -45,15 +35,8 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id',
-            'user',
-            'delivery_address',
-            'created_at',
-            'status',
-            'total_amount',
-            'driver_latitude',
-            'driver_longitude',
-            'items',
+            'id', 'user', 'delivery_address', 'created_at', 'status',
+            'total_amount', 'driver_latitude', 'driver_longitude', 'items'
         ]
 
     def get_delivery_address(self, obj):
@@ -62,7 +45,7 @@ class OrderSerializer(serializers.ModelSerializer):
         return None
 
 
-# ✅ Serializer for individual order items when placing orders
+# --- Place Order Item Serializer ---
 class PlaceOrderItemSerializer(serializers.Serializer):
     food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
     quantity = serializers.IntegerField(min_value=1)
@@ -73,7 +56,7 @@ class PlaceOrderItemSerializer(serializers.Serializer):
         return food_item
 
 
-# ✅ Serializer to place an order
+# --- Place Order Serializer ---
 class PlaceOrderSerializer(serializers.Serializer):
     delivery_address_id = serializers.IntegerField()
     items = PlaceOrderItemSerializer(many=True)
@@ -112,6 +95,8 @@ class PlaceOrderSerializer(serializers.Serializer):
             status='pending'
         )
 
+        logger.info(f"Created order #{order.id}")
+
         for item in items_data:
             food = item['food_item']
             quantity = item['quantity']
@@ -129,12 +114,12 @@ class PlaceOrderSerializer(serializers.Serializer):
         order.total_amount = total_price
         order.save()
 
-        logger.info(f"Order #{order.id} created successfully with total: {total_price}")
+        logger.info(f"Order #{order.id} finalized with total: {total_price}")
 
         return order
 
 
-# ✅ Serializer for updating driver location
+# --- Driver Location Update Serializer ---
 class DriverLocationUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
@@ -156,7 +141,7 @@ class DriverLocationUpdateSerializer(serializers.ModelSerializer):
         return attrs
 
 
-# ✅ Serializer for accepting an order
+# --- Accept Order Serializer ---
 class AcceptOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
@@ -168,7 +153,7 @@ class AcceptOrderSerializer(serializers.ModelSerializer):
         return value
 
 
-# ✅ Serializer for rejecting an order
+# --- Reject Order Serializer ---
 class RejectOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
