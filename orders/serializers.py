@@ -3,6 +3,7 @@ from .models import DeliveryAddress, Order, OrderItem
 from food.models import FoodItem
 
 
+# ✅ Delivery Address Serializer
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
@@ -18,6 +19,7 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         ]
 
 
+# ✅ Order Item Serializer
 class OrderItemSerializer(serializers.ModelSerializer):
     food_item_name = serializers.CharField(source='food_item.name', read_only=True)
     food_item_price = serializers.DecimalField(
@@ -32,6 +34,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'food_item', 'food_item_name', 'food_item_price', 'quantity']
 
 
+# ✅ Order Serializer
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     delivery_address = serializers.SerializerMethodField()
@@ -57,6 +60,7 @@ class OrderSerializer(serializers.ModelSerializer):
         return None
 
 
+# ✅ Serializer for individual order items when placing orders
 class PlaceOrderItemSerializer(serializers.Serializer):
     food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
     quantity = serializers.IntegerField(min_value=1)
@@ -67,6 +71,7 @@ class PlaceOrderItemSerializer(serializers.Serializer):
         return food_item
 
 
+# ✅ Serializer to place an order
 class PlaceOrderSerializer(serializers.Serializer):
     delivery_address_id = serializers.IntegerField()
     items = PlaceOrderItemSerializer(many=True)
@@ -114,6 +119,7 @@ class PlaceOrderSerializer(serializers.Serializer):
         return order
 
 
+# ✅ Serializer for updating driver location
 class DriverLocationUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
@@ -133,3 +139,27 @@ class DriverLocationUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Longitude must be between -180 and 180.")
 
         return attrs
+
+
+# ✅ Serializer for accepting an order
+class AcceptOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['status']
+
+    def validate_status(self, value):
+        if value != 'processing':
+            raise serializers.ValidationError("Status must be 'processing' to accept an order.")
+        return value
+
+
+# ✅ Serializer for rejecting an order
+class RejectOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['status']
+
+    def validate_status(self, value):
+        if value != 'cancelled':
+            raise serializers.ValidationError("Status must be 'cancelled' to reject an order.")
+        return value

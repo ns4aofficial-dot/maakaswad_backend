@@ -13,6 +13,7 @@ from .serializers import (
 )
 
 
+# ✅ Place a new order
 class PlaceOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -24,6 +25,7 @@ class PlaceOrderView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# ✅ List all orders for the logged-in user
 class UserOrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = OrderSerializer
@@ -37,6 +39,7 @@ class UserOrderListView(generics.ListAPIView):
         )
 
 
+# ✅ Get details of a specific order
 class UserOrderDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = OrderSerializer
@@ -50,6 +53,7 @@ class UserOrderDetailView(generics.RetrieveAPIView):
         )
 
 
+# ✅ Cancel an order within 2 minutes
 class CancelOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -72,6 +76,7 @@ class CancelOrderView(APIView):
             return Response({"detail": f"Server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# ✅ Create a new delivery address
 class CreateDeliveryAddressView(generics.CreateAPIView):
     serializer_class = DeliveryAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -80,6 +85,7 @@ class CreateDeliveryAddressView(generics.CreateAPIView):
         serializer.save(user=self.request.user)
 
 
+# ✅ List all delivery addresses
 class ListDeliveryAddressesView(generics.ListAPIView):
     serializer_class = DeliveryAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -88,6 +94,7 @@ class ListDeliveryAddressesView(generics.ListAPIView):
         return DeliveryAddress.objects.filter(user=self.request.user).order_by('-id')
 
 
+# ✅ Retrieve / Update / Delete delivery address
 class DeliveryAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = DeliveryAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -97,6 +104,7 @@ class DeliveryAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
         return DeliveryAddress.objects.filter(user=self.request.user)
 
 
+# ✅ Track a live order
 class TrackOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -134,6 +142,7 @@ class TrackOrderView(APIView):
             return Response({"detail": f"Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# ✅ Update driver location
 class UpdateDriverLocationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -151,3 +160,46 @@ class UpdateDriverLocationView(APIView):
             return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"detail": f"Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ✅ Accept an order
+class AcceptOrderView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+
+            if order.status != "pending":
+                return Response({"detail": "Order cannot be accepted."}, status=status.HTTP_400_BAD_REQUEST)
+
+            order.status = "processing"
+            order.accepted_by = request.user
+            order.save(update_fields=["status", "accepted_by"])
+            return Response({"detail": "Order accepted successfully."}, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"detail": f"Server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ✅ Reject an order
+class RejectOrderView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+
+            if order.status != "pending":
+                return Response({"detail": "Order cannot be rejected."}, status=status.HTTP_400_BAD_REQUEST)
+
+            order.status = "cancelled"
+            order.save(update_fields=["status"])
+            return Response({"detail": "Order rejected successfully."}, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"detail": f"Server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
