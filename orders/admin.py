@@ -19,6 +19,11 @@ class OrderItemAdmin(admin.ModelAdmin):
 
 @admin.register(DeliveryAddress)
 class DeliveryAddressAdmin(admin.ModelAdmin):
-    list_display = ('user', 'full_name', 'address', 'city', 'pincode')
-    search_fields = ('user__username', 'city', 'pincode', 'address')
+    list_display = ('user', 'full_name', 'full_address', 'city', 'pincode')
+    search_fields = ('user__username', 'city', 'pincode', 'street')
     list_filter = ('city',)
+
+    def full_address(self, obj):
+        """Combine street, city, and state into a single address column."""
+        return f"{obj.street}, {obj.city}, {obj.state}"
+    full_address.short_description = "Address"
