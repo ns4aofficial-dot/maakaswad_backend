@@ -50,7 +50,7 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         if not user or not user.is_authenticated:
             raise serializers.ValidationError("Authentication required.")
 
-        # Combine house + street into address field
+        # Combine house + street into address
         house = validated_data.pop('house', '')
         street = validated_data.pop('street', '')
         validated_data['address'] = f"{house}, {street}".strip(', ')

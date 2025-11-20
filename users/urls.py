@@ -13,12 +13,16 @@ from .views import (
     ResetPasswordView,
 )
 
-# ✅ Health check view with timeout-friendly response
+# ==========================
+# 🩺 Health Check View
+# ==========================
 @require_GET
 def health_check(request):
     return JsonResponse({"status": "ok"}, status=200)
 
-
+# ==========================
+# ✅ URL Patterns
+# ==========================
 urlpatterns = [
     # 🩺 Health Check
     path("health/", health_check, name="health"),
@@ -32,17 +36,9 @@ urlpatterns = [
     path("profile/", UserProfileView.as_view(), name="profile"),
     path("notifications/", NotificationSettingsView.as_view(), name="notifications"),
 
-    # 🏠 Addresses
-    path(
-        "addresses/",
-        DeliveryAddressListCreateView.as_view(),
-        name="address-list-create"
-    ),
-    path(
-        "addresses/<int:pk>/",
-        DeliveryAddressDetailView.as_view(),
-        name="address-detail"
-    ),
+    # 🏠 Delivery Addresses
+    path("addresses/", DeliveryAddressListCreateView.as_view(), name="address-list-create"),
+    path("addresses/<int:pk>/", DeliveryAddressDetailView.as_view(), name="address-detail"),
 
     # 🔑 Password Reset
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
