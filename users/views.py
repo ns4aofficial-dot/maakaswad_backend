@@ -40,6 +40,7 @@ class RegisterView(APIView):
                 token, _ = Token.objects.get_or_create(user=user)
                 return Response({
                     'token': token.key,
+                    'role': user.role,   # ⭐ NEW
                     'user': UserSerializer(user).data
                 }, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -48,7 +49,7 @@ class RegisterView(APIView):
             traceback.print_exc()
             return Response({'detail': 'Server error in Register'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# ✅ Login View
+# ✅ Login View (Now returns ROLE)
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -79,6 +80,7 @@ class LoginView(APIView):
 
             return Response({
                 'token': token.key,
+                'role': user.role,   # ⭐ ROLE ADDED HERE
                 'user': {
                     'id': user.id,
                     'username': user.username,
@@ -175,7 +177,7 @@ class DeliveryAddressDetailView(RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return DeliveryAddress.objects.filter(user=self.request.user)
 
-# ⭐ DELETE ACCOUNT API (Works on Web, Android, iOS)
+# ⭐ DELETE ACCOUNT API
 class DeleteAccountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -183,16 +185,13 @@ class DeleteAccountView(APIView):
         try:
             user = request.user
 
-            # Delete user's addresses
             DeliveryAddress.objects.filter(user=user).delete()
 
-            # Delete token if exists
             try:
                 user.auth_token.delete()
             except:
                 pass
 
-            # Delete user
             user.delete()
 
             return Response(
