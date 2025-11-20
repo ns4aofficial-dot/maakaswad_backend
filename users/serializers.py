@@ -1,12 +1,16 @@
-﻿from rest_framework import serializers
-from django.contrib.auth import authenticate
-from .models import User, DeliveryAddress
+﻿# users/serializers.py
+from rest_framework import serializers
+from .models import User, DeliveryAddress  # DeliveryAddress defined below in same app or separate app
+from django.contrib.auth import get_user_model
 
+UserModel = get_user_model()
 
-# ✅ USER PROFILE SERIALIZER
+# -----------------------
+# User Serializer
+# -----------------------
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
+        model = UserModel
         fields = [
             'id',
             'username',
@@ -21,18 +25,18 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'username', 'email', 'role']
 
 
-# ✅ REGISTRATION SERIALIZER
+# -----------------------
+# Register Serializer
+# -----------------------
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
-
-    # ⭐ Extra fields for Captain
     role = serializers.CharField(required=False, default="user")
     captain_id = serializers.CharField(required=False, allow_blank=True)
     vehicle_number = serializers.CharField(required=False, allow_blank=True)
     city = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
-        model = User
+        model = UserModel
         fields = [
             'username',
             'email',
@@ -50,17 +54,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         vehicle_number = validated_data.pop("vehicle_number", None)
         city = validated_data.pop("city", None)
 
-        # create base user
-        user = User.objects.create_user(
+        user = UserModel.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password'],
             phone=validated_data.get('phone', '')
         )
 
-        # assign role + extra details
         user.role = role
-
         if role == "captain":
             user.captain_id = captain_id
             user.vehicle_number = vehicle_number
@@ -70,7 +71,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
-# ✅ DELIVERY ADDRESS SERIALIZER
+# -----------------------
+# Delivery Address Serializer
+# -----------------------
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
@@ -93,13 +96,14 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             raise serializers.ValidationError("Authentication required.")
-
         validated_data['user'] = request.user
         return super().create(validated_data)
 
 
-# ✅ NOTIFICATION SETTINGS SERIALIZER
+# -----------------------
+# Notification Settings Serializer
+# -----------------------
 class NotificationSettingsSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
+        model = UserModel
         fields = ['notifications_enabled']
