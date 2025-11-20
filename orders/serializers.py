@@ -2,12 +2,16 @@
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from rest_framework import serializers
+
 from .models import DeliveryAddress, Order, OrderItem
 from food.models import FoodItem
 
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------
+# Delivery Address Serializer
+# ---------------------------
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
@@ -17,6 +21,9 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         ]
 
 
+# ---------------------------
+# Order Item Serializer
+# ---------------------------
 class OrderItemSerializer(serializers.ModelSerializer):
     food_item_name = serializers.CharField(source='food_item.name', read_only=True)
     food_item_price = serializers.DecimalField(
@@ -28,6 +35,9 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'food_item', 'food_item_name', 'food_item_price', 'quantity']
 
 
+# ---------------------------
+# Order Serializer (List View)
+# ---------------------------
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     delivery_address = DeliveryAddressSerializer(read_only=True)
@@ -58,6 +68,49 @@ class OrderSerializer(serializers.ModelSerializer):
         return None
 
 
+# ---------------------------
+# Order Detail Serializer
+# ---------------------------
+class OrderDetailSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+    delivery_address = DeliveryAddressSerializer(read_only=True)
+    user = serializers.StringRelatedField(read_only=True)
+
+    driver_location = serializers.SerializerMethodField()
+    destination = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            'id',
+            'user',
+            'delivery_address',
+            'created_at',
+            'status',
+            'total_amount',
+            'driver_location',
+            'destination',
+            'items',
+        ]
+
+    def get_driver_location(self, obj):
+        return {
+            "latitude": float(obj.driver_latitude) if obj.driver_latitude else None,
+            "longitude": float(obj.driver_longitude) if obj.driver_longitude else None
+        }
+
+    def get_destination(self, obj):
+        if obj.delivery_address:
+            return {
+                "latitude": float(obj.delivery_address.latitude) if obj.delivery_address.latitude else None,
+                "longitude": float(obj.delivery_address.longitude) if obj.delivery_address.longitude else None
+            }
+        return None
+
+
+# ---------------------------
+# Place Order Item Serializer
+# ---------------------------
 class PlaceOrderItemSerializer(serializers.Serializer):
     food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
     quantity = serializers.IntegerField(min_value=1)
@@ -69,6 +122,9 @@ class PlaceOrderItemSerializer(serializers.Serializer):
         return food_item
 
 
+# ---------------------------
+# Place Order Serializer
+# ---------------------------
 class PlaceOrderSerializer(serializers.Serializer):
     delivery_address_id = serializers.IntegerField()
     items = PlaceOrderItemSerializer(many=True)
@@ -111,19 +167,17 @@ class PlaceOrderSerializer(serializers.Serializer):
                 food = item['food_item']
                 quantity = item['quantity']
 
-                # Safe quantity conversion
                 try:
                     quantity = int(quantity)
                 except:
                     quantity = 1
 
-                # Safe price conversion
                 try:
                     price = Decimal(str(food.price))
                 except (InvalidOperation, TypeError, ValueError):
                     price = Decimal('0.00')
 
-                # Create order item
+                # Create Order Item
                 OrderItem.objects.create(
                     order=order,
                     food_item=food,
@@ -139,6 +193,9 @@ class PlaceOrderSerializer(serializers.Serializer):
         return order
 
 
+# ---------------------------
+# Driver Location Update Serializer
+# ---------------------------
 class DriverLocationUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
@@ -160,6 +217,9 @@ class DriverLocationUpdateSerializer(serializers.ModelSerializer):
         return attrs
 
 
+# ---------------------------
+# Accept Order Serializer
+# ---------------------------
 class AcceptOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
@@ -171,6 +231,9 @@ class AcceptOrderSerializer(serializers.ModelSerializer):
         return value
 
 
+# ---------------------------
+# Reject Order Serializer
+# ---------------------------
 class RejectOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
