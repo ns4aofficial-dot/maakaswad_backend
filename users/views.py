@@ -48,7 +48,7 @@ class RegisterView(APIView):
             traceback.print_exc()
             return Response({'detail': 'Server error in Register'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# ✅ Login View (Optimized with Q lookup)
+# ✅ Login View
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -174,6 +174,39 @@ class DeliveryAddressDetailView(RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return DeliveryAddress.objects.filter(user=self.request.user)
+
+# ⭐ DELETE ACCOUNT API (Works on Web, Android, iOS)
+class DeleteAccountView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        try:
+            user = request.user
+
+            # Delete user's addresses
+            DeliveryAddress.objects.filter(user=user).delete()
+
+            # Delete token if exists
+            try:
+                user.auth_token.delete()
+            except:
+                pass
+
+            # Delete user
+            user.delete()
+
+            return Response(
+                {"detail": "Account deleted successfully"},
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            print("❌ Error in DeleteAccountView:", str(e))
+            traceback.print_exc()
+            return Response(
+                {"detail": "Error deleting account"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ✅ Forgot Password View
 class ForgotPasswordView(APIView):
