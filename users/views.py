@@ -36,26 +36,46 @@ class RegisterView(APIView):
 
     def post(self, request):
         try:
-            serializer = RegisterSerializer(data=request.data)
+            data = request.data.copy()
+            role = data.get("role", "user")
+
+            # 🔥 Captain Specific Validation
+            if role == "captain":
+                required = ["captain_id", "vehicle_number", "city"]
+                missing = [f for f in required if not data.get(f)]
+                if missing:
+                    return Response(
+                        {"detail": f"Missing fields for captain: {', '.join(missing)}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            serializer = RegisterSerializer(data=data)
 
             if serializer.is_valid():
-                user = serializer.save()  # role is handled in serializer
+                user = serializer.save()  # serializer saves role too
+
+                if role == "captain":
+                    user.captain_id = data.get("captain_id")
+                    user.vehicle_number = data.get("vehicle_number")
+                    user.city = data.get("city")
+                    user.save(update_fields=["captain_id", "vehicle_number", "city"])
+
                 token, _ = Token.objects.get_or_create(user=user)
 
                 return Response({
                     'token': token.key,
                     'role': user.role,
                     'user': UserSerializer(user).data
-                }, status=201)
+                }, status=status.HTTP_201_CREATED)
 
-            return Response(serializer.errors, status=400)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception:
             traceback.print_exc()
             return Response({'detail': 'Server error in Register'}, status=500)
 
 
-# 🟢 Login with ROLE included
+# 🟢 Login with ROLE returned
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -90,6 +110,7 @@ class LoginView(APIView):
                     'email': user.email,
                     'phone': user.phone,
                     'notifications_enabled': user.notifications_enabled,
+                    'role': user.role,
                 }
             }, status=200)
 
@@ -124,13 +145,10 @@ class UserProfileView(APIView):
     def put(self, request):
         try:
             serializer = UserSerializer(request.user, data=request.data, partial=True)
-
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=200)
-
             return Response(serializer.errors, status=400)
-
         except:
             traceback.print_exc()
             return Response({'detail': 'Error updating profile'}, status=500)
@@ -149,13 +167,12 @@ class NotificationSettingsView(APIView):
                 return Response(serializer.data, status=200)
 
             return Response(serializer.errors, status=400)
-
         except:
             traceback.print_exc()
             return Response({'detail': 'Error updating notifications'}, status=500)
 
 
-# 🟢 Delivery Address CRUD
+# 🟢 Delivery Address
 class DeliveryAddressListCreateView(ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DeliveryAddressSerializer
@@ -182,7 +199,6 @@ class DeleteAccountView(APIView):
     def post(self, request):
         try:
             user = request.user
-
             DeliveryAddress.objects.filter(user=user).delete()
 
             try:
@@ -191,7 +207,6 @@ class DeleteAccountView(APIView):
                 pass
 
             user.delete()
-
             return Response({"detail": "Account deleted successfully"}, status=200)
 
         except:
