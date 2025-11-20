@@ -1,15 +1,49 @@
-# users/admin.py
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from .models import User, DeliveryAddress
 
-@admin.register(User)
-class UserAdmin(DefaultUserAdmin):
-    list_display = ('email', 'username', 'role', 'phone', 'is_staff', 'is_active')
-    list_filter = ('role', 'is_staff', 'is_superuser', 'is_active')
-    search_fields = ('email', 'username', 'phone')
 
+# ------------------------------
+# USER ADMIN
+# ------------------------------
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "username", "email", "phone",
+        "role", "captain_id", "vehicle_number", "city",
+        "notifications_enabled",
+    )
+
+    list_filter = ("role", "city", "notifications_enabled")
+    search_fields = ("username", "email", "phone", "captain_id", "vehicle_number")
+
+    fieldsets = (
+        ("User Info", {
+            "fields": ("username", "email", "phone", "password")
+        }),
+        ("Roles", {
+            "fields": ("role",)
+        }),
+        ("Captain Details", {
+            "fields": ("captain_id", "vehicle_number", "city"),
+            "classes": ("collapse",)
+        }),
+        ("Settings", {
+            "fields": ("notifications_enabled",)
+        }),
+    )
+
+    readonly_fields = ("password",)
+
+
+# ------------------------------
+# DELIVERY ADDRESS ADMIN
+# ------------------------------
 @admin.register(DeliveryAddress)
 class DeliveryAddressAdmin(admin.ModelAdmin):
-    list_display = ('full_name', 'city', 'phone', 'user')
-    search_fields = ('full_name', 'city', 'phone')
+    list_display = (
+        "id", "user", "full_name", "city",
+        "pincode", "phone", "default", "created_at"
+    )
+
+    list_filter = ("city", "default")
+    search_fields = ("full_name", "city", "pincode", "phone", "house", "street")
