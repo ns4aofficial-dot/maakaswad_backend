@@ -32,8 +32,17 @@ class RegisterSerializer(serializers.ModelSerializer):
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
-        fields = '__all__'
-        read_only_fields = ['id', 'user', 'created_at']
+        fields = [
+            'id',
+            'full_name',
+            'address',
+            'city',
+            'pincode',
+            'phone',
+            'latitude',
+            'longitude'
+        ]
+        read_only_fields = ['id']
 
     def create(self, validated_data):
         request = self.context.get('request')
@@ -44,6 +53,7 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
 
         validated_data['user'] = user
         return super().create(validated_data)
+
 
 
 # ✅ NOTIFICATION SETTINGS SERIALIZER
