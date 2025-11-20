@@ -2,16 +2,18 @@
 from django.contrib.auth import authenticate
 from .models import User, DeliveryAddress
 
-
+# ==========================
 # ✅ USER PROFILE SERIALIZER
+# ==========================
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'phone', 'notifications_enabled']
         read_only_fields = ['id', 'username', 'email']
 
-
+# ==========================
 # ✅ REGISTRATION SERIALIZER
+# ==========================
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
 
@@ -27,16 +29,19 @@ class RegisterSerializer(serializers.ModelSerializer):
             phone=validated_data.get('phone', '')
         )
 
-
-# ✅ DELIVERY ADDRESS SERIALIZER (UPDATED)
+# ==========================
+# ✅ DELIVERY ADDRESS SERIALIZER
+# ==========================
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     house = serializers.CharField(write_only=True, required=True)
     street = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = DeliveryAddress
-        fields = ['id', 'user', 'full_name', 'phone', 'house', 'street', 'address',
-                  'landmark', 'city', 'state', 'pincode', 'created_at']
+        fields = [
+            'id', 'user', 'full_name', 'phone', 'house', 'street', 'address',
+            'landmark', 'city', 'state', 'pincode', 'created_at'
+        ]
         read_only_fields = ['id', 'user', 'address', 'created_at']
 
     def create(self, validated_data):
@@ -54,21 +59,25 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        # Combine house + street for update
+        # Combine house + street safely
         house = validated_data.pop('house', None)
         street = validated_data.pop('street', None)
-        if house or street:
-            h = house if house is not None else instance.address.split(',')[0]
-            s = street if street is not None else instance.address.split(',')[1] if ',' in instance.address else ''
-            instance.address = f"{h}, {s}".strip(', ')
 
+        # Split existing address safely
+        parts = instance.address.split(',') if instance.address else ['', '']
+        h = house if house is not None else parts[0].strip()
+        s = street if street is not None else parts[1].strip() if len(parts) > 1 else ''
+        instance.address = f"{h}, {s}".strip(', ')
+
+        # Update remaining fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         return instance
 
-
+# ==========================
 # ✅ NOTIFICATION SETTINGS SERIALIZER
+# ==========================
 class NotificationSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
