@@ -10,8 +10,6 @@ from django.utils.crypto import get_random_string
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-import traceback
 
 from .serializers import (
     UserSerializer,
@@ -20,19 +18,17 @@ from .serializers import (
     NotificationSettingsSerializer
 )
 from .models import DeliveryAddress
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+import traceback
 
 User = get_user_model()
 
-# ==========================
 # 🩺 Health Check View
-# ==========================
 @csrf_exempt
 def health_check(request):
     return JsonResponse({"status": "ok"})
 
-# ==========================
 # ✅ Register View
-# ==========================
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -52,9 +48,7 @@ class RegisterView(APIView):
             traceback.print_exc()
             return Response({'detail': 'Server error in Register'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# ==========================
-# ✅ Login View
-# ==========================
+# ✅ Login View (Optimized with Q lookup)
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -64,8 +58,10 @@ class LoginView(APIView):
             password = request.data.get('password')
 
             if not identifier or not password:
-                return Response({'detail': 'Please provide identifier and password'},
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'detail': 'Please provide identifier and password'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             user = User.objects.filter(
                 Q(email__iexact=identifier) |
@@ -95,11 +91,12 @@ class LoginView(APIView):
         except Exception as e:
             print("❌ Error in LoginView:", str(e))
             traceback.print_exc()
-            return Response({'detail': 'Server error in Login'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'detail': 'Server error in Login'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-# ==========================
 # ✅ Logout View
-# ==========================
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -112,9 +109,7 @@ class LogoutView(APIView):
             traceback.print_exc()
             return Response({'detail': 'Server error in Logout'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# ==========================
 # ✅ User Profile View
-# ==========================
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -138,9 +133,7 @@ class UserProfileView(APIView):
             traceback.print_exc()
             return Response({'detail': 'Server error updating profile'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# ==========================
 # ✅ Notification Settings View
-# ==========================
 class NotificationSettingsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -159,9 +152,7 @@ class NotificationSettingsView(APIView):
             traceback.print_exc()
             return Response({'detail': 'Server error updating notifications'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# ==========================
 # ✅ Delivery Address Views
-# ==========================
 class DeliveryAddressListCreateView(ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DeliveryAddressSerializer
@@ -184,9 +175,7 @@ class DeliveryAddressDetailView(RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return DeliveryAddress.objects.filter(user=self.request.user)
 
-# ==========================
 # ✅ Forgot Password View
-# ==========================
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -199,7 +188,7 @@ class ForgotPasswordView(APIView):
             user = User.objects.get(email=email)
             reset_token = get_random_string(32)
             user.reset_token = reset_token
-            user.save(update_fields=['reset_token'])
+            user.save(update_fields=[])
 
             send_mail(
                 subject="Password Reset Request",
@@ -209,12 +198,11 @@ class ForgotPasswordView(APIView):
             )
 
             return Response({'detail': 'Password reset token sent to email'}, status=status.HTTP_200_OK)
+
         except User.DoesNotExist:
             return Response({'detail': 'User with this email does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
-# ==========================
 # ✅ Reset Password View
-# ==========================
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -236,5 +224,6 @@ class ResetPasswordView(APIView):
             user.save()
 
             return Response({'detail': 'Password reset successful'}, status=status.HTTP_200_OK)
+
         except User.DoesNotExist:
             return Response({'detail': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
