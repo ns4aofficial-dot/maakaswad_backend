@@ -7,7 +7,6 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
-from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -23,12 +22,14 @@ import traceback
 
 User = get_user_model()
 
-# 🩺 Health Check View
+
+# 🩺 Health Check
 @csrf_exempt
 def health_check(request):
     return JsonResponse({"status": "ok"})
 
-# ✅ Register View
+
+# ⭐ Register View (returns role)
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -40,16 +41,17 @@ class RegisterView(APIView):
                 token, _ = Token.objects.get_or_create(user=user)
                 return Response({
                     'token': token.key,
-                    'role': user.role,   # ⭐ NEW
+                    'role': user.role,
                     'user': UserSerializer(user).data
                 }, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print("❌ Error in RegisterView:", str(e))
-            traceback.print_exc()
-            return Response({'detail': 'Server error in Register'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# ✅ Login View (Now returns ROLE)
+        except Exception as e:
+            traceback.print_exc()
+            return Response({'detail': 'Server error in Register'}, status=500)
+
+
+# ⭐ Login View (ROLE included)
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -61,7 +63,7 @@ class LoginView(APIView):
             if not identifier or not password:
                 return Response(
                     {'detail': 'Please provide identifier and password'},
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=400
                 )
 
             user = User.objects.filter(
@@ -71,90 +73,83 @@ class LoginView(APIView):
             ).first()
 
             if not user:
-                return Response({'detail': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'detail': 'User not found'}, status=404)
 
             if not user.check_password(password):
-                return Response({'detail': 'Invalid password'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'detail': 'Invalid password'}, status=401)
 
             token, _ = Token.objects.get_or_create(user=user)
 
             return Response({
                 'token': token.key,
-                'role': user.role,   # ⭐ ROLE ADDED HERE
+                'role': user.role,
                 'user': {
                     'id': user.id,
                     'username': user.username,
                     'email': user.email,
                     'phone': user.phone,
-                    'notifications_enabled': getattr(user, 'notifications_enabled', False),
+                    'notifications_enabled': user.notifications_enabled,
                 }
-            }, status=status.HTTP_200_OK)
+            }, status=200)
 
         except Exception as e:
-            print("❌ Error in LoginView:", str(e))
             traceback.print_exc()
-            return Response(
-                {'detail': 'Server error in Login'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({'detail': 'Server error in Login'}, status=500)
 
-# ✅ Logout View
+
+# ⭐ Logout View
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         try:
             request.user.auth_token.delete()
-            return Response({'detail': 'Logged out successfully'}, status=status.HTTP_200_OK)
-        except Exception as e:
-            print("❌ Error in LogoutView:", str(e))
-            traceback.print_exc()
-            return Response({'detail': 'Server error in Logout'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'detail': 'Logged out successfully'}, status=200)
+        except:
+            return Response({'detail': 'Server error in Logout'}, status=500)
 
-# ✅ User Profile View
+
+# ⭐ User Profile
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         try:
-            return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
-        except Exception as e:
-            print("❌ Error in UserProfileView GET:", str(e))
+            return Response(UserSerializer(request.user).data, status=200)
+        except:
             traceback.print_exc()
-            return Response({'detail': 'Server error fetching profile'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'detail': 'Error fetching profile'}, status=500)
 
     def put(self, request):
         try:
             serializer = UserSerializer(request.user, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print("❌ Error in UserProfileView PUT:", str(e))
-            traceback.print_exc()
-            return Response({'detail': 'Server error updating profile'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response(serializer.data, status=200)
+            return Response(serializer.errors, status=400)
 
-# ✅ Notification Settings View
+        except:
+            traceback.print_exc()
+            return Response({'detail': 'Error updating profile'}, status=500)
+
+
+# ⭐ Notification Settings
 class NotificationSettingsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        return Response({'notifications_enabled': request.user.notifications_enabled}, status=status.HTTP_200_OK)
 
     def put(self, request):
         try:
             serializer = NotificationSettingsSerializer(request.user, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print("❌ Error in NotificationSettingsView:", str(e))
+                return Response(serializer.data, status=200)
+            return Response(serializer.errors, status=400)
+        except:
             traceback.print_exc()
-            return Response({'detail': 'Server error updating notifications'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'detail': 'Error updating notifications'}, status=500)
 
-# ✅ Delivery Address Views
+
+# ⭐ Delivery Address CRUD
 class DeliveryAddressListCreateView(ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DeliveryAddressSerializer
@@ -163,12 +158,8 @@ class DeliveryAddressListCreateView(ListCreateAPIView):
         return DeliveryAddress.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        try:
-            serializer.save(user=self.request.user)
-        except Exception as e:
-            print("❌ Error in DeliveryAddressListCreateView:", str(e))
-            traceback.print_exc()
-            raise
+        serializer.save(user=self.request.user)
+
 
 class DeliveryAddressDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -177,14 +168,14 @@ class DeliveryAddressDetailView(RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return DeliveryAddress.objects.filter(user=self.request.user)
 
-# ⭐ DELETE ACCOUNT API
+
+# ⭐ DELETE ACCOUNT
 class DeleteAccountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         try:
             user = request.user
-
             DeliveryAddress.objects.filter(user=user).delete()
 
             try:
@@ -193,48 +184,41 @@ class DeleteAccountView(APIView):
                 pass
 
             user.delete()
+            return Response({"detail": "Account deleted successfully"}, status=200)
 
-            return Response(
-                {"detail": "Account deleted successfully"},
-                status=status.HTTP_200_OK
-            )
-
-        except Exception as e:
-            print("❌ Error in DeleteAccountView:", str(e))
+        except:
             traceback.print_exc()
-            return Response(
-                {"detail": "Error deleting account"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({'detail': 'Error deleting account'}, status=500)
 
-# ✅ Forgot Password View
+
+# ⭐ Forgot Password
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         email = request.data.get("email")
         if not email:
-            return Response({'detail': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Email is required'}, status=400)
 
         try:
             user = User.objects.get(email=email)
-            reset_token = get_random_string(32)
-            user.reset_token = reset_token
-            user.save(update_fields=[])
+            token = get_random_string(32)
+            user.set_reset_token(token)
 
             send_mail(
                 subject="Password Reset Request",
-                message=f"Use this token to reset your password: {reset_token}",
+                message=f"Use this token to reset password: {token}",
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
+                recipient_list=[email],
             )
 
-            return Response({'detail': 'Password reset token sent to email'}, status=status.HTTP_200_OK)
+            return Response({'detail': 'Reset token sent'}, status=200)
 
         except User.DoesNotExist:
-            return Response({'detail': 'User with this email does not exist'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'User not found'}, status=404)
 
-# ✅ Reset Password View
+
+# ⭐ Reset Password
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -244,18 +228,19 @@ class ResetPasswordView(APIView):
         new_password = request.data.get("new_password")
 
         if not all([email, token, new_password]):
-            return Response({'detail': 'Email, token, and new password are required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'All fields required'}, status=400)
 
         try:
             user = User.objects.get(email=email)
-            if getattr(user, "reset_token", None) != token:
-                return Response({'detail': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if user.reset_token != token:
+                return Response({'detail': 'Invalid or expired token'}, status=400)
 
             user.set_password(new_password)
-            user.reset_token = None
+            user.clear_reset_token()
             user.save()
 
-            return Response({'detail': 'Password reset successful'}, status=status.HTTP_200_OK)
+            return Response({'detail': 'Password reset successful'}, status=200)
 
         except User.DoesNotExist:
-            return Response({'detail': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'User not found'}, status=404)
