@@ -9,6 +9,7 @@ from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+import traceback
 
 from .serializers import (
     UserSerializer,
@@ -17,41 +18,44 @@ from .serializers import (
     NotificationSettingsSerializer
 )
 from .models import DeliveryAddress
+
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-import traceback
 
 User = get_user_model()
 
 
-# 🩺 Health Check
+# 🟢 Health Check
 @csrf_exempt
 def health_check(request):
     return JsonResponse({"status": "ok"})
 
 
-# ⭐ Register View (returns role)
+# 🟢 Register (Supports role=user/captain)
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         try:
             serializer = RegisterSerializer(data=request.data)
+
             if serializer.is_valid():
-                user = serializer.save()
+                user = serializer.save()  # role is handled in serializer
                 token, _ = Token.objects.get_or_create(user=user)
+
                 return Response({
                     'token': token.key,
                     'role': user.role,
                     'user': UserSerializer(user).data
-                }, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                }, status=201)
 
-        except Exception as e:
+            return Response(serializer.errors, status=400)
+
+        except Exception:
             traceback.print_exc()
             return Response({'detail': 'Server error in Register'}, status=500)
 
 
-# ⭐ Login View (ROLE included)
+# 🟢 Login with ROLE included
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -61,10 +65,7 @@ class LoginView(APIView):
             password = request.data.get('password')
 
             if not identifier or not password:
-                return Response(
-                    {'detail': 'Please provide identifier and password'},
-                    status=400
-                )
+                return Response({'detail': 'Please provide identifier and password'}, status=400)
 
             user = User.objects.filter(
                 Q(email__iexact=identifier) |
@@ -92,12 +93,12 @@ class LoginView(APIView):
                 }
             }, status=200)
 
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
             return Response({'detail': 'Server error in Login'}, status=500)
 
 
-# ⭐ Logout View
+# 🟢 Logout
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -109,7 +110,7 @@ class LogoutView(APIView):
             return Response({'detail': 'Server error in Logout'}, status=500)
 
 
-# ⭐ User Profile
+# 🟢 User Profile
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -123,9 +124,11 @@ class UserProfileView(APIView):
     def put(self, request):
         try:
             serializer = UserSerializer(request.user, data=request.data, partial=True)
+
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=200)
+
             return Response(serializer.errors, status=400)
 
         except:
@@ -133,23 +136,26 @@ class UserProfileView(APIView):
             return Response({'detail': 'Error updating profile'}, status=500)
 
 
-# ⭐ Notification Settings
+# 🟢 Notification Settings
 class NotificationSettingsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def put(self, request):
         try:
             serializer = NotificationSettingsSerializer(request.user, data=request.data, partial=True)
+
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=200)
+
             return Response(serializer.errors, status=400)
+
         except:
             traceback.print_exc()
             return Response({'detail': 'Error updating notifications'}, status=500)
 
 
-# ⭐ Delivery Address CRUD
+# 🟢 Delivery Address CRUD
 class DeliveryAddressListCreateView(ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DeliveryAddressSerializer
@@ -169,13 +175,14 @@ class DeliveryAddressDetailView(RetrieveUpdateDestroyAPIView):
         return DeliveryAddress.objects.filter(user=self.request.user)
 
 
-# ⭐ DELETE ACCOUNT
+# 🟢 Delete Account
 class DeleteAccountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         try:
             user = request.user
+
             DeliveryAddress.objects.filter(user=user).delete()
 
             try:
@@ -184,6 +191,7 @@ class DeleteAccountView(APIView):
                 pass
 
             user.delete()
+
             return Response({"detail": "Account deleted successfully"}, status=200)
 
         except:
@@ -191,7 +199,7 @@ class DeleteAccountView(APIView):
             return Response({'detail': 'Error deleting account'}, status=500)
 
 
-# ⭐ Forgot Password
+# 🟢 Forgot Password
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -208,7 +216,7 @@ class ForgotPasswordView(APIView):
             send_mail(
                 subject="Password Reset Request",
                 message=f"Use this token to reset password: {token}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
+                from_email="noreply@maakaswad.com",
                 recipient_list=[email],
             )
 
@@ -218,7 +226,7 @@ class ForgotPasswordView(APIView):
             return Response({'detail': 'User not found'}, status=404)
 
 
-# ⭐ Reset Password
+# 🟢 Reset Password
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
