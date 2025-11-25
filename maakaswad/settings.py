@@ -23,7 +23,7 @@ ALLOWED_HOSTS = [
     "*",  # allow everything (for testing)
 ]
 
-# ✅ Add CSRF Trusted Origins
+# ⭐ UPDATED - Allow Flutter App
 CSRF_TRUSTED_ORIGINS = [
     "https://maakaswad.onrender.com",
     "http://localhost",
@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'payments',
 ]
 
+# ⭐ IMPORTANT FOR SOCIAL LOGIN
 AUTH_USER_MODEL = 'users.User'
 
 AUTHENTICATION_BACKENDS = [
@@ -65,10 +66,13 @@ AUTHENTICATION_BACKENDS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # ✅ static files
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # Removed CsrfViewMiddleware to avoid Flutter CSRF errors
+
+    # ⭐ You disabled CSRF for Flutter – OK
+    # 'django.middleware.csrf.CsrfViewMiddleware',
+
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -77,7 +81,7 @@ MIDDLEWARE = [
 # =========================
 # 🌐 CORS Settings
 # =========================
-CORS_ALLOW_ALL_ORIGINS = True  # ✅ Allow requests from all origins
+CORS_ALLOW_ALL_ORIGINS = True  # allow mobile/web apps
 
 # =========================
 # 🔧 Project Settings
@@ -140,18 +144,18 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Whitenoise settings
+# Whitenoise
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # =========================
-# 🔐 Django REST Framework
+# ⭐ UPDATED — REST Framework with JWT
 # =========================
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # ⭐ Use JWT
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # ✅ Signup/Login without auth
+        'rest_framework.permissions.AllowAny',
     ],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
@@ -161,8 +165,15 @@ REST_FRAMEWORK = {
     ],
 }
 
+# ⭐ JWT SETTINGS (optional but recommended)
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
 # =========================
-# 🔑 Razorpay API Keys
+# 🔑 Razorpay
 # =========================
 RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
 RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
