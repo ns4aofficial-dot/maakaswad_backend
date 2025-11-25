@@ -11,21 +11,14 @@ def health_check(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
 
+    # Global health check
     path('', health_check),
 
-    # USERS (includes Social Login)
+    # Apps
     path('api/users/', include('users.urls')),
-
-    # Food
     path('api/food/', include('food.urls')),
-
-    # Cart
     path('api/cart/', include('cart.urls')),
-
-    # Orders
     path('api/orders/', include('orders.urls')),
-
-    # Payments
     path('api/payments/', include('payments.urls')),
 ]
 

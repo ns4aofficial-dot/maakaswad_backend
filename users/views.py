@@ -46,7 +46,7 @@ def health_check(request):
 
 
 # =============================
-# 🟢 Social Login (GOOGLE)
+# 🟢 Google Login (Final Correct Version)
 # =============================
 class SocialLoginView(APIView):
     permission_classes = [AllowAny]
@@ -56,29 +56,35 @@ class SocialLoginView(APIView):
         access_token = request.data.get("access_token")
 
         if provider != "google":
-            return Response({"detail": "Only Google supported now"}, status=400)
+            return Response({"detail": "Only Google login supported"}, status=400)
 
-        # ⭐ Verify Google Token
-        google_url = "https://oauth2.googleapis.com/tokeninfo"
-        resp = requests.get(google_url, params={"id_token": access_token})
+        if not access_token:
+            return Response({"detail": "Missing Google access token"}, status=400)
 
-        if resp.status_code != 200:
+        # ⭐ Verify Google token using People API (works for Web, Android, iOS)
+        google_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+        response = requests.get(
+            google_url,
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        if response.status_code != 200:
             return Response({"detail": "Invalid Google token"}, status=400)
 
-        data = resp.json()
+        data = response.json()
+
         email = data.get("email")
-        name = data.get("name") or email.split("@")[0]
+        name = data.get("name") or (email.split("@")[0] if email else None)
 
         if not email:
             return Response({"detail": "Google login failed"}, status=400)
 
-        # ⭐ Create/Get User
+        # Create or fetch user
         user, created = User.objects.get_or_create(
             email=email,
             defaults={"username": name, "role": "user"}
         )
 
-        # ⭐ Return JWT Token
         return Response(generate_jwt(user), status=200)
 
 
@@ -91,14 +97,10 @@ class RegisterView(APIView):
     def post(self, request):
         try:
             data = request.data.copy()
-            role = data.get("role", "user")
 
             serializer = RegisterSerializer(data=data)
-
             if serializer.is_valid():
                 user = serializer.save()
-
-                # ⭐ Return JWT
                 return Response(generate_jwt(user), status=201)
 
             return Response(serializer.errors, status=400)
@@ -122,6 +124,7 @@ class LoginView(APIView):
             if not identifier or not password:
                 return Response({'detail': 'Missing credentials'}, status=400)
 
+            # Find user
             user = User.objects.filter(
                 Q(email__iexact=identifier) |
                 Q(phone=identifier) |
@@ -142,7 +145,7 @@ class LoginView(APIView):
 
 
 # =============================
-# 🟢 Logout (JWT doesn't need delete)
+# 🟢 Logout
 # =============================
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
