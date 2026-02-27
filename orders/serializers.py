@@ -51,7 +51,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 # ==========================================================
-# 🛒 Order List Serializer (Chef & Captain Ready)
+# 🛒 Order List Serializer
 # ==========================================================
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
@@ -96,6 +96,34 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 # ==========================================================
+# 📄 Order Detail Serializer  ✅ FIX ADDED
+# ==========================================================
+class OrderDetailSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+    delivery_address = DeliveryAddressSerializer(read_only=True)
+
+    user = serializers.StringRelatedField(read_only=True)
+    assigned_chef = serializers.StringRelatedField(read_only=True)
+    assigned_captain = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            'id',
+            'user',
+            'assigned_chef',
+            'assigned_captain',
+            'delivery_address',
+            'created_at',
+            'status',
+            'total_amount',
+            'driver_latitude',
+            'driver_longitude',
+            'items'
+        ]
+
+
+# ==========================================================
 # 📝 Place Order
 # ==========================================================
 class PlaceOrderItemSerializer(serializers.Serializer):
@@ -114,10 +142,12 @@ class PlaceOrderSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         request = self.context.get('request')
-        address_id = attrs.get('delivery_address_id')
 
         try:
-            address = DeliveryAddress.objects.get(id=address_id, user=request.user)
+            address = DeliveryAddress.objects.get(
+                id=attrs.get('delivery_address_id'),
+                user=request.user
+            )
         except DeliveryAddress.DoesNotExist:
             raise serializers.ValidationError("Invalid delivery address.")
 
@@ -214,17 +244,3 @@ class DriverLocationUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Longitude must be between -180 and 180.")
 
         return attrs
-
-
-# ==========================================================
-# ❌ Cancel Order (Common)
-# ==========================================================
-class CancelOrderSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Order
-        fields = ['status']
-
-    def validate_status(self, value):
-        if value != 'cancelled':
-            raise serializers.ValidationError("Status must be 'cancelled'.")
-        return value
