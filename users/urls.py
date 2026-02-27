@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from .views import (
     RegisterView,
     LoginView,
+    PartnerLoginView,   # ✅ NEW
     LogoutView,
     UserProfileView,
     DeliveryAddressListCreateView,
@@ -31,17 +32,22 @@ def health_check(request):
 
 urlpatterns = [
 
-    # System
+    # ------------------------------------------------------
+    # 🟢 System
+    # ------------------------------------------------------
     path("health/", health_check, name="health"),
 
     # ------------------------------------------------------
-    # 🔐 Authentication
+    # 🔐 Authentication (Customer App)
     # ------------------------------------------------------
     path("register/", RegisterView.as_view(), name="register"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
 
-    # Social Login
+    # 🔵 Partner Login (Chef / Captain App)
+    path("partner-login/", PartnerLoginView.as_view(), name="partner-login"),
+
+    # Social Login (Customer Only)
     path("social/", SocialLoginView.as_view(), name="social-login"),
 
     # ------------------------------------------------------

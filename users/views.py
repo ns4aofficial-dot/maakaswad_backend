@@ -27,7 +27,7 @@ User = get_user_model()
 
 
 # ==========================================================
-# ✅ JWT GENERATOR (Clean Response)
+# ✅ JWT GENERATOR
 # ==========================================================
 def generate_jwt(user):
     refresh = RefreshToken.for_user(user)
@@ -47,7 +47,7 @@ def health_check(request):
 
 
 # ==========================================================
-# 🟢 Google Social Login
+# 🟢 Google Social Login (Customer Only)
 # ==========================================================
 class SocialLoginView(APIView):
     permission_classes = [AllowAny]
@@ -78,8 +78,19 @@ class SocialLoginView(APIView):
 
             user, created = User.objects.get_or_create(
                 email=email,
-                defaults={"username": name, "role": "user"}
+                defaults={
+                    "username": name,
+                    "role": "user",
+                    "is_approved": True  # customers auto approved
+                }
             )
+
+            # ❌ Block partner login in customer app
+            if user.role != "user":
+                return Response(
+                    {"detail": "Partner accounts cannot login here"},
+                    status=403
+                )
 
             return Response(generate_jwt(user), status=200)
 
@@ -89,7 +100,7 @@ class SocialLoginView(APIView):
 
 
 # ==========================================================
-# 🟢 Register
+# 🟢 CUSTOMER REGISTER
 # ==========================================================
 class RegisterView(APIView):
     permission_classes = [AllowAny]
@@ -99,13 +110,16 @@ class RegisterView(APIView):
 
         if serializer.is_valid():
             user = serializer.save()
+            user.role = "user"
+            user.is_approved = True
+            user.save()
             return Response(generate_jwt(user), status=201)
 
         return Response(serializer.errors, status=400)
 
 
 # ==========================================================
-# 🟢 Login
+# 🟢 CUSTOMER LOGIN (ONLY role=user)
 # ==========================================================
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -128,6 +142,62 @@ class LoginView(APIView):
 
         if not user.check_password(password):
             return Response({"detail": "Invalid password"}, status=401)
+
+        # ❌ Block chef/captain from customer app
+        if user.role != "user":
+            return Response(
+                {"detail": "Partner accounts not allowed here"},
+                status=403
+            )
+
+        return Response(generate_jwt(user), status=200)
+
+
+# ==========================================================
+# 🔵 PARTNER LOGIN (Chef / Captain Only)
+# ==========================================================
+class PartnerLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        identifier = request.data.get("identifier")
+        password = request.data.get("password")
+
+        if not identifier or not password:
+            return Response({"detail": "Missing credentials"}, status=400)
+
+        user = User.objects.filter(
+            Q(email__iexact=identifier) |
+            Q(phone=identifier) |
+            Q(username__iexact=identifier)
+        ).first()
+
+        if not user:
+            return Response({"detail": "User not found"}, status=404)
+
+        if not user.check_password(password):
+            return Response({"detail": "Invalid password"}, status=401)
+
+        # ✅ Allow only chef or captain
+        if user.role not in ["chef", "captain"]:
+            return Response(
+                {"detail": "Not a partner account"},
+                status=403
+            )
+
+        # 💰 Registration fee check
+        if not user.registration_paid:
+            return Response(
+                {"detail": "Registration fee not paid"},
+                status=403
+            )
+
+        # 🛑 Admin approval check
+        if not user.is_approved:
+            return Response(
+                {"detail": "Waiting for admin approval"},
+                status=403
+            )
 
         return Response(generate_jwt(user), status=200)
 
