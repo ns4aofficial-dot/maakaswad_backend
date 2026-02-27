@@ -11,6 +11,7 @@ from django.utils import timezone
 # -----------------------------------------------------------
 
 class User(AbstractUser):
+
     # -------------------------------------------------------
     # Basic Fields
     # -------------------------------------------------------
@@ -41,7 +42,6 @@ class User(AbstractUser):
     registration_paid = models.BooleanField(default=False)
     is_approved = models.BooleanField(default=False)
 
-    # Optional: store payment reference
     payment_reference = models.CharField(
         max_length=100,
         blank=True,
@@ -49,7 +49,20 @@ class User(AbstractUser):
     )
 
     # -------------------------------------------------------
-    # Captain specific fields
+    # ⭐ Partner Activity & Earnings
+    # -------------------------------------------------------
+    is_online = models.BooleanField(default=False)
+
+    total_earnings = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00
+    )
+
+    rating = models.FloatField(default=0.0)
+
+    # -------------------------------------------------------
+    # Captain Specific Fields
     # -------------------------------------------------------
     captain_id = models.CharField(max_length=20, blank=True, null=True)
     vehicle_number = models.CharField(max_length=20, blank=True, null=True)
