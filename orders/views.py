@@ -78,7 +78,7 @@ class CancelOrderView(APIView):
 
 
 # ==========================================================
-# 👩‍🍳 CHEF - List Orders
+# 👩‍🍳 CHEF - View Orders
 # ==========================================================
 class ChefOrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -88,9 +88,34 @@ class ChefOrderListView(generics.ListAPIView):
         if self.request.user.role != "chef":
             return Order.objects.none()
 
+        # 🔥 Show:
+        # 1. Pending orders (not yet accepted)
+        # 2. Orders assigned to this chef
         return Order.objects.filter(
-            assigned_chef=self.request.user
+            status__in=["pending", "accepted", "preparing", "ready_for_pickup"]
         )
+
+
+# ==========================================================
+# 👩‍🍳 CHEF - Accept Order (LOCK SYSTEM)
+# ==========================================================
+class ChefAcceptOrderView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, order_id):
+        if request.user.role != "chef":
+            return Response({"detail": "Only chef allowed."}, status=403)
+
+        order = get_object_or_404(Order, id=order_id)
+
+        if order.status != "pending":
+            return Response({"detail": "Order already taken."}, status=400)
+
+        order.assigned_chef = request.user
+        order.status = "accepted"
+        order.save(update_fields=["assigned_chef", "status"])
+
+        return Response({"detail": "Order accepted successfully."})
 
 
 # ==========================================================
@@ -103,7 +128,7 @@ class ChefUpdateStatusView(APIView):
         if request.user.role != "chef":
             return Response({"detail": "Only chef allowed."}, status=403)
 
-        order = get_object_or_404(Order, id=order_id)
+        order = get_object_or_404(Order, id=order_id, assigned_chef=request.user)
 
         serializer = ChefStatusUpdateSerializer(order, data=request.data, partial=True)
 
@@ -115,7 +140,7 @@ class ChefUpdateStatusView(APIView):
 
 
 # ==========================================================
-# 🚴 CAPTAIN - List Orders
+# 🚴 CAPTAIN - View Orders
 # ==========================================================
 class CaptainOrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -140,7 +165,7 @@ class CaptainUpdateStatusView(APIView):
         if request.user.role != "captain":
             return Response({"detail": "Only captain allowed."}, status=403)
 
-        order = get_object_or_404(Order, id=order_id)
+        order = get_object_or_404(Order, id=order_id, assigned_captain=request.user)
 
         serializer = CaptainStatusUpdateSerializer(order, data=request.data, partial=True)
 
@@ -152,18 +177,18 @@ class CaptainUpdateStatusView(APIView):
 
 
 # ==========================================================
-# 🚴 Assign Captain to Order (Admin/System)
+# 🚴 Assign Captain (Only Assigned Chef Can Do)
 # ==========================================================
 class AssignCaptainView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, order_id):
         if request.user.role != "chef":
-            return Response({"detail": "Only chef can assign captain."}, status=403)
+            return Response({"detail": "Only chef allowed."}, status=403)
+
+        order = get_object_or_404(Order, id=order_id, assigned_chef=request.user)
 
         captain_id = request.data.get("captain_id")
-
-        order = get_object_or_404(Order, id=order_id)
 
         from users.models import User
         captain = get_object_or_404(User, id=captain_id, role="captain")
@@ -196,7 +221,7 @@ class UpdateDriverLocationView(APIView):
         if request.user.role != "captain":
             return Response({"detail": "Only captain allowed."}, status=403)
 
-        order = get_object_or_404(Order, id=order_id)
+        order = get_object_or_404(Order, id=order_id, assigned_captain=request.user)
 
         serializer = DriverLocationUpdateSerializer(order, data=request.data, partial=True)
 
