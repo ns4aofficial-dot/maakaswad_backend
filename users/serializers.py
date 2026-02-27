@@ -1,9 +1,14 @@
 ﻿from rest_framework import serializers
-from django.contrib.auth import authenticate
-from .models import User, DeliveryAddress
+from django.contrib.auth import get_user_model
+from .models import DeliveryAddress
+
+User = get_user_model()
 
 
+# ===========================================================
 # ✅ USER PROFILE SERIALIZER
+# ===========================================================
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -21,12 +26,18 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'username', 'email', 'role']
 
 
-# ✅ REGISTRATION SERIALIZER
+# ===========================================================
+# ✅ REGISTRATION SERIALIZER (Updated for Chef & Captain)
+# ===========================================================
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
 
-    # ⭐ Extra fields for Captain
-    role = serializers.CharField(required=False, default="user")
+    role = serializers.ChoiceField(
+        choices=User.ROLE_CHOICES,
+        default="user"
+    )
+
     captain_id = serializers.CharField(required=False, allow_blank=True)
     vehicle_number = serializers.CharField(required=False, allow_blank=True)
     city = serializers.CharField(required=False, allow_blank=True)
@@ -44,13 +55,32 @@ class RegisterSerializer(serializers.ModelSerializer):
             'city'
         ]
 
+    def validate(self, data):
+        role = data.get("role")
+
+        # Captain validation
+        if role == "captain":
+            if not data.get("captain_id"):
+                raise serializers.ValidationError({
+                    "captain_id": "Captain ID is required for captain role."
+                })
+            if not data.get("vehicle_number"):
+                raise serializers.ValidationError({
+                    "vehicle_number": "Vehicle number is required for captain role."
+                })
+            if not data.get("city"):
+                raise serializers.ValidationError({
+                    "city": "City is required for captain role."
+                })
+
+        return data
+
     def create(self, validated_data):
         role = validated_data.pop("role", "user")
         captain_id = validated_data.pop("captain_id", None)
         vehicle_number = validated_data.pop("vehicle_number", None)
         city = validated_data.pop("city", None)
 
-        # create base user
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
@@ -58,7 +88,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             phone=validated_data.get('phone', '')
         )
 
-        # assign role + extra details
         user.role = role
 
         if role == "captain":
@@ -70,7 +99,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
+# ===========================================================
 # ✅ DELIVERY ADDRESS SERIALIZER
+# ===========================================================
+
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
@@ -91,6 +123,7 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context.get('request')
+
         if not request or not request.user.is_authenticated:
             raise serializers.ValidationError("Authentication required.")
 
@@ -98,7 +131,10 @@ class DeliveryAddressSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+# ===========================================================
 # ✅ NOTIFICATION SETTINGS SERIALIZER
+# ===========================================================
+
 class NotificationSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

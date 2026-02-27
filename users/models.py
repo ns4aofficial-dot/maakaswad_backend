@@ -18,14 +18,20 @@ class User(AbstractUser):
 
     notifications_enabled = models.BooleanField(default=True)
 
-    # ⭐ New ROLE field
+    # ⭐ UPDATED ROLE FIELD
     ROLE_CHOICES = (
-        ('user', 'User'),
-        ('captain', 'Captain'),
+        ('user', 'User'),        # Customer
+        ('chef', 'Chef'),        # Mother Partner
+        ('captain', 'Captain'),  # Delivery Partner
     )
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
 
-    # ⭐ Captain fields
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default='user'
+    )
+
+    # ⭐ Captain specific fields
     captain_id = models.CharField(max_length=20, blank=True, null=True)
     vehicle_number = models.CharField(max_length=20, blank=True, null=True)
     city = models.CharField(max_length=50, blank=True, null=True)
@@ -38,7 +44,7 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ['username', 'phone']
 
     def __str__(self):
-        return self.email
+        return f"{self.email} ({self.role})"
 
     # ⭐ Generate reset token
     def set_reset_token(self, token):

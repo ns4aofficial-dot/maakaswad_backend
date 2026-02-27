@@ -9,72 +9,57 @@ from food.models import FoodItem
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------
-# Delivery Address Serializer
-# ---------------------------
+# ==========================================================
+# 📍 Delivery Address Serializer
+# ==========================================================
 class DeliveryAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryAddress
         fields = [
-            'id', 'full_name', 'address', 'city', 'pincode', 'phone',
-            'latitude', 'longitude'
+            'id',
+            'full_name',
+            'address',
+            'city',
+            'pincode',
+            'phone',
+            'latitude',
+            'longitude'
         ]
 
 
-# ---------------------------
-# Order Item Serializer
-# ---------------------------
+# ==========================================================
+# 🍱 Order Item Serializer
+# ==========================================================
 class OrderItemSerializer(serializers.ModelSerializer):
     food_item_name = serializers.CharField(source='food_item.name', read_only=True)
     food_item_price = serializers.DecimalField(
-        source='food_item.price', max_digits=8, decimal_places=2, read_only=True
+        source='food_item.price',
+        max_digits=8,
+        decimal_places=2,
+        read_only=True
     )
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'food_item', 'food_item_name', 'food_item_price', 'quantity']
+        fields = [
+            'id',
+            'food_item',
+            'food_item_name',
+            'food_item_price',
+            'quantity'
+        ]
 
 
-# ---------------------------
-# Order Serializer (List View)
-# ---------------------------
+# ==========================================================
+# 🛒 Order List Serializer (Chef & Captain Ready)
+# ==========================================================
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     delivery_address = DeliveryAddressSerializer(read_only=True)
+
     user = serializers.StringRelatedField(read_only=True)
-
-    driver_location = serializers.SerializerMethodField()
-    destination = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Order
-        fields = [
-            'id', 'user', 'delivery_address', 'created_at', 'status',
-            'total_amount', 'driver_location', 'destination', 'items'
-        ]
-
-    def get_driver_location(self, obj):
-        return {
-            "latitude": float(obj.driver_latitude) if obj.driver_latitude else None,
-            "longitude": float(obj.driver_longitude) if obj.driver_longitude else None
-        }
-
-    def get_destination(self, obj):
-        if obj.delivery_address:
-            return {
-                "latitude": float(obj.delivery_address.latitude) if obj.delivery_address.latitude else None,
-                "longitude": float(obj.delivery_address.longitude) if obj.delivery_address.longitude else None
-            }
-        return None
-
-
-# ---------------------------
-# Order Detail Serializer
-# ---------------------------
-class OrderDetailSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)
-    delivery_address = DeliveryAddressSerializer(read_only=True)
-    user = serializers.StringRelatedField(read_only=True)
+    assigned_chef = serializers.StringRelatedField(read_only=True)
+    assigned_captain = serializers.StringRelatedField(read_only=True)
 
     driver_location = serializers.SerializerMethodField()
     destination = serializers.SerializerMethodField()
@@ -84,13 +69,15 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'user',
+            'assigned_chef',
+            'assigned_captain',
             'delivery_address',
             'created_at',
             'status',
             'total_amount',
             'driver_location',
             'destination',
-            'items',
+            'items'
         ]
 
     def get_driver_location(self, obj):
@@ -108,23 +95,19 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         return None
 
 
-# ---------------------------
-# Place Order Item Serializer
-# ---------------------------
+# ==========================================================
+# 📝 Place Order
+# ==========================================================
 class PlaceOrderItemSerializer(serializers.Serializer):
     food_item = serializers.PrimaryKeyRelatedField(queryset=FoodItem.objects.all())
     quantity = serializers.IntegerField(min_value=1)
 
     def validate_food_item(self, food_item):
         if not food_item.is_available:
-            logger.warning(f"Food item {food_item.id} is not available")
             raise serializers.ValidationError("This food item is not available.")
         return food_item
 
 
-# ---------------------------
-# Place Order Serializer
-# ---------------------------
 class PlaceOrderSerializer(serializers.Serializer):
     delivery_address_id = serializers.IntegerField()
     items = PlaceOrderItemSerializer(many=True)
@@ -133,17 +116,10 @@ class PlaceOrderSerializer(serializers.Serializer):
         request = self.context.get('request')
         address_id = attrs.get('delivery_address_id')
 
-        if not address_id:
-            raise serializers.ValidationError({
-                'delivery_address_id': ['This field is required.']
-            })
-
         try:
             address = DeliveryAddress.objects.get(id=address_id, user=request.user)
         except DeliveryAddress.DoesNotExist:
-            raise serializers.ValidationError({
-                'delivery_address_id': ['Invalid delivery address for this user.']
-            })
+            raise serializers.ValidationError("Invalid delivery address.")
 
         attrs['delivery_address'] = address
         return attrs
@@ -165,26 +141,19 @@ class PlaceOrderSerializer(serializers.Serializer):
 
             for item in items_data:
                 food = item['food_item']
-                quantity = item['quantity']
+                quantity = int(item['quantity'])
 
-                try:
-                    quantity = int(quantity)
-                except:
-                    quantity = 1
-
-                try:
-                    price = Decimal(str(food.price))
-                except (InvalidOperation, TypeError, ValueError):
-                    price = Decimal('0.00')
-
-                # Create Order Item
                 OrderItem.objects.create(
                     order=order,
                     food_item=food,
                     quantity=quantity
                 )
 
-                # Add subtotal
+                try:
+                    price = Decimal(str(food.price))
+                except (InvalidOperation, TypeError, ValueError):
+                    price = Decimal('0.00')
+
                 total_price += price * Decimal(quantity)
 
             order.total_amount = total_price.quantize(Decimal("0.01"))
@@ -193,9 +162,39 @@ class PlaceOrderSerializer(serializers.Serializer):
         return order
 
 
-# ---------------------------
-# Driver Location Update Serializer
-# ---------------------------
+# ==========================================================
+# 👩‍🍳 Chef Status Update
+# ==========================================================
+class ChefStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['status']
+
+    def validate_status(self, value):
+        allowed = ['accepted', 'preparing', 'ready_for_pickup']
+        if value not in allowed:
+            raise serializers.ValidationError("Invalid status for chef.")
+        return value
+
+
+# ==========================================================
+# 🚴 Captain Status Update
+# ==========================================================
+class CaptainStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['status']
+
+    def validate_status(self, value):
+        allowed = ['assigned', 'picked_up', 'out_for_delivery', 'delivered']
+        if value not in allowed:
+            raise serializers.ValidationError("Invalid status for captain.")
+        return value
+
+
+# ==========================================================
+# 📍 Driver Location Update
+# ==========================================================
 class DriverLocationUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
@@ -206,7 +205,7 @@ class DriverLocationUpdateSerializer(serializers.ModelSerializer):
         lon = attrs.get("driver_longitude")
 
         if lat is None or lon is None:
-            raise serializers.ValidationError("Latitude and Longitude must be provided.")
+            raise serializers.ValidationError("Latitude and Longitude required.")
 
         if not (-90 <= lat <= 90):
             raise serializers.ValidationError("Latitude must be between -90 and 90.")
@@ -217,29 +216,15 @@ class DriverLocationUpdateSerializer(serializers.ModelSerializer):
         return attrs
 
 
-# ---------------------------
-# Accept Order Serializer
-# ---------------------------
-class AcceptOrderSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Order
-        fields = ['status']
-
-    def validate_status(self, value):
-        if value != 'processing':
-            raise serializers.ValidationError("Status must be 'processing' to accept an order.")
-        return value
-
-
-# ---------------------------
-# Reject Order Serializer
-# ---------------------------
-class RejectOrderSerializer(serializers.ModelSerializer):
+# ==========================================================
+# ❌ Cancel Order (Common)
+# ==========================================================
+class CancelOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['status']
 
     def validate_status(self, value):
         if value != 'cancelled':
-            raise serializers.ValidationError("Status must be 'cancelled' to reject an order.")
+            raise serializers.ValidationError("Status must be 'cancelled'.")
         return value

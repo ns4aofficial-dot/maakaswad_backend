@@ -1,6 +1,8 @@
 ﻿import logging
 from datetime import timedelta
 from django.utils.timezone import now
+from django.shortcuts import get_object_or_404
+
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,15 +13,17 @@ from .serializers import (
     OrderDetailSerializer,
     PlaceOrderSerializer,
     DeliveryAddressSerializer,
-    DriverLocationUpdateSerializer
+    DriverLocationUpdateSerializer,
+    ChefStatusUpdateSerializer,
+    CaptainStatusUpdateSerializer,
 )
 
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------
-# Place a new order
-# ---------------------------------------------------------
+# ==========================================================
+# 🛒 CUSTOMER - Place Order
+# ==========================================================
 class PlaceOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -27,83 +31,185 @@ class PlaceOrderView(APIView):
         serializer = PlaceOrderSerializer(data=request.data, context={'request': request})
 
         if serializer.is_valid():
-            try:
-                order = serializer.save()
-                return Response(OrderDetailSerializer(order).data, status=status.HTTP_201_CREATED)
-            except Exception as e:
-                logger.error("Error placing order", exc_info=True)
-                return Response({"detail": f"Failed to place order: {str(e)}"},
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            order = serializer.save()
+            return Response(OrderDetailSerializer(order).data, status=201)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=400)
 
 
-# ---------------------------------------------------------
-# List all orders for logged-in user
-# ---------------------------------------------------------
+# ==========================================================
+# 🛒 CUSTOMER - My Orders
+# ==========================================================
 class UserOrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        return (
-            Order.objects.filter(user=self.request.user)
-            .select_related("delivery_address")
-            .prefetch_related("items__food_item")
-            .order_by("-created_at")
-        )
+        return Order.objects.filter(user=self.request.user)
 
 
-# ---------------------------------------------------------
-# Get order details
-# ---------------------------------------------------------
 class UserOrderDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = OrderDetailSerializer
-    lookup_field = 'pk'
 
     def get_queryset(self):
-        return (
-            Order.objects.filter(user=self.request.user)
-            .select_related("delivery_address")
-            .prefetch_related("items__food_item")
-        )
+        return Order.objects.filter(user=self.request.user)
 
 
-# ---------------------------------------------------------
-# Cancel an order (within 2 minutes)
-# ---------------------------------------------------------
+# ==========================================================
+# ❌ CUSTOMER - Cancel Order
+# ==========================================================
 class CancelOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id, user=request.user)
+        order = get_object_or_404(Order, id=order_id, user=request.user)
 
-            if order.status.lower() != "pending":
-                return Response({"detail": "Order cannot be cancelled."},
-                                status=status.HTTP_400_BAD_REQUEST)
+        if order.status != "pending":
+            return Response({"detail": "Order cannot be cancelled."}, status=400)
 
-            if now() - order.created_at > timedelta(minutes=2):
-                return Response({"detail": "Cancel period expired."},
-                                status=status.HTTP_400_BAD_REQUEST)
+        if now() - order.created_at > timedelta(minutes=2):
+            return Response({"detail": "Cancel period expired."}, status=400)
 
-            order.status = "cancelled"
-            order.save(update_fields=["status"])
+        order.status = "cancelled"
+        order.save(update_fields=["status"])
 
-            return Response({"detail": "Order cancelled successfully."}, status=status.HTTP_200_OK)
-
-        except Order.DoesNotExist:
-            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.error("CancelOrderView error", exc_info=True)
-            return Response({"detail": f"Server error: {str(e)}"},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"detail": "Order cancelled successfully."})
 
 
-# ---------------------------------------------------------
-# Create delivery address
-# ---------------------------------------------------------
+# ==========================================================
+# 👩‍🍳 CHEF - List Orders
+# ==========================================================
+class ChefOrderListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = OrderSerializer
+
+    def get_queryset(self):
+        if self.request.user.role != "chef":
+            return Order.objects.none()
+
+        return Order.objects.filter(
+            assigned_chef=self.request.user
+        )
+
+
+# ==========================================================
+# 👩‍🍳 CHEF - Update Status
+# ==========================================================
+class ChefUpdateStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, order_id):
+        if request.user.role != "chef":
+            return Response({"detail": "Only chef allowed."}, status=403)
+
+        order = get_object_or_404(Order, id=order_id)
+
+        serializer = ChefStatusUpdateSerializer(order, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"detail": "Order status updated by chef."})
+
+        return Response(serializer.errors, status=400)
+
+
+# ==========================================================
+# 🚴 CAPTAIN - List Orders
+# ==========================================================
+class CaptainOrderListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = OrderSerializer
+
+    def get_queryset(self):
+        if self.request.user.role != "captain":
+            return Order.objects.none()
+
+        return Order.objects.filter(
+            assigned_captain=self.request.user
+        )
+
+
+# ==========================================================
+# 🚴 CAPTAIN - Update Status
+# ==========================================================
+class CaptainUpdateStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, order_id):
+        if request.user.role != "captain":
+            return Response({"detail": "Only captain allowed."}, status=403)
+
+        order = get_object_or_404(Order, id=order_id)
+
+        serializer = CaptainStatusUpdateSerializer(order, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"detail": "Order status updated by captain."})
+
+        return Response(serializer.errors, status=400)
+
+
+# ==========================================================
+# 🚴 Assign Captain to Order (Admin/System)
+# ==========================================================
+class AssignCaptainView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, order_id):
+        if request.user.role != "chef":
+            return Response({"detail": "Only chef can assign captain."}, status=403)
+
+        captain_id = request.data.get("captain_id")
+
+        order = get_object_or_404(Order, id=order_id)
+
+        from users.models import User
+        captain = get_object_or_404(User, id=captain_id, role="captain")
+
+        order.assigned_captain = captain
+        order.status = "assigned"
+        order.save(update_fields=["assigned_captain", "status"])
+
+        return Response({"detail": "Captain assigned successfully."})
+
+
+# ==========================================================
+# 🚚 Track Order (Customer)
+# ==========================================================
+class TrackOrderView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id, user=request.user)
+        return Response(OrderSerializer(order).data)
+
+
+# ==========================================================
+# 📍 Update Driver Location
+# ==========================================================
+class UpdateDriverLocationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, order_id):
+        if request.user.role != "captain":
+            return Response({"detail": "Only captain allowed."}, status=403)
+
+        order = get_object_or_404(Order, id=order_id)
+
+        serializer = DriverLocationUpdateSerializer(order, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"detail": "Driver location updated."})
+
+        return Response(serializer.errors, status=400)
+
+
+# ==========================================================
+# 🏠 Delivery Address
+# ==========================================================
 class CreateDeliveryAddressView(generics.CreateAPIView):
     serializer_class = DeliveryAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -112,157 +218,17 @@ class CreateDeliveryAddressView(generics.CreateAPIView):
         serializer.save(user=self.request.user)
 
 
-# ---------------------------------------------------------
-# List delivery addresses
-# ---------------------------------------------------------
 class ListDeliveryAddressesView(generics.ListAPIView):
     serializer_class = DeliveryAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return DeliveryAddress.objects.filter(user=self.request.user).order_by('-id')
-
-
-# ---------------------------------------------------------
-# Delivery address detail (update/delete)
-# ---------------------------------------------------------
-class DeliveryAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = DeliveryAddressSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    lookup_field = 'pk'
-
-    def get_queryset(self):
         return DeliveryAddress.objects.filter(user=self.request.user)
 
 
-# ---------------------------------------------------------
-# Track a live order
-# ---------------------------------------------------------
-class TrackOrderView(APIView):
+class DeliveryAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = DeliveryAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, order_id):
-        try:
-            order = (
-                Order.objects.select_related("delivery_address")
-                .filter(id=order_id, user=request.user)
-                .first()
-            )
-
-            if not order:
-                return Response({"detail": "Order not found."},
-                                status=status.HTTP_404_NOT_FOUND)
-
-            delivery_address = order.delivery_address
-
-            data = {
-                "id": order.id,
-                "status": order.status,
-                "total_amount": str(order.total_amount),
-                "created_at": order.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "driver_location": {
-                    "latitude": float(order.driver_latitude) if order.driver_latitude else None,
-                    "longitude": float(order.driver_longitude) if order.driver_longitude else None,
-                },
-                "destination": {
-                    "latitude": float(delivery_address.latitude) if delivery_address and delivery_address.latitude else None,
-                    "longitude": float(delivery_address.longitude) if delivery_address and delivery_address.longitude else None,
-                },
-                "restaurant_location": {
-                    "latitude": None,
-                    "longitude": None
-                }
-            }
-
-            return Response(data, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            logger.error("TrackOrderView error", exc_info=True)
-            return Response({"detail": f"Server Error: {str(e)}"},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# ---------------------------------------------------------
-# Update driver location
-# ---------------------------------------------------------
-class UpdateDriverLocationView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def patch(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id)
-            serializer = DriverLocationUpdateSerializer(order, data=request.data, partial=True)
-
-            if serializer.is_valid():
-                serializer.save()
-                return Response({"detail": "Driver location updated successfully."},
-                                status=status.HTTP_200_OK)
-
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        except Order.DoesNotExist:
-            return Response({"detail": "Order not found."},
-                            status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.error("UpdateDriverLocationView error", exc_info=True)
-            return Response({"detail": f"Server Error: {str(e)}"},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# ---------------------------------------------------------
-# Accept an order
-# ---------------------------------------------------------
-class AcceptOrderView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id)
-
-            if order.status != "pending":
-                return Response({"detail": "Order cannot be accepted."},
-                                status=status.HTTP_400_BAD_REQUEST)
-
-            order.status = "processing"
-            order.accepted_by = request.user
-            order.save(update_fields=["status", "accepted_by"])
-
-            return Response({"detail": "Order accepted successfully."},
-                            status=status.HTTP_200_OK)
-
-        except Order.DoesNotExist:
-            return Response({"detail": "Order not found."},
-                            status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.error("AcceptOrderView error", exc_info=True)
-            return Response({"detail": f"Server error: {str(e)}"},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# ---------------------------------------------------------
-# Reject an order
-# ---------------------------------------------------------
-class RejectOrderView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id)
-
-            if order.status != "pending":
-                return Response({"detail": "Order cannot be rejected."},
-                                status=status.HTTP_400_BAD_REQUEST)
-
-            order.status = "cancelled"
-            order.save(update_fields=["status"])
-
-            return Response({"detail": "Order rejected successfully."},
-                            status=status.HTTP_200_OK)
-
-        except Order.DoesNotExist:
-            return Response({"detail": "Order not found."},
-                            status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.error("RejectOrderView error", exc_info=True)
-            return Response({"detail": f"Server error: {str(e)}"},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    def get_queryset(self):
+        return DeliveryAddress.objects.filter(user=self.request.user)

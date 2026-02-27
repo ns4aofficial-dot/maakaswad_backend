@@ -8,8 +8,9 @@ from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
 import traceback
-import requests  # ⭐ REQUIRED FOR GOOGLE TOKEN VERIFY
+import requests
 
 from .serializers import (
     UserSerializer,
@@ -20,34 +21,34 @@ from .serializers import (
 from .models import DeliveryAddress
 
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-from rest_framework_simplejwt.tokens import RefreshToken  # ⭐ JWT TOKEN
+from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
 
-# =============================
-# ⭐ JWT Generator
-# =============================
+# ==========================================================
+# ✅ JWT GENERATOR (Clean Response)
+# ==========================================================
 def generate_jwt(user):
     refresh = RefreshToken.for_user(user)
     return {
-        "token": str(refresh.access_token),
+        "access": str(refresh.access_token),
         "refresh": str(refresh),
         "user": UserSerializer(user).data
     }
 
 
-# =============================
+# ==========================================================
 # 🟢 Health Check
-# =============================
+# ==========================================================
 @csrf_exempt
 def health_check(request):
     return JsonResponse({"status": "ok"})
 
 
-# =============================
-# 🟢 Google Login (Final Correct Version)
-# =============================
+# ==========================================================
+# 🟢 Google Social Login
+# ==========================================================
 class SocialLoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -61,133 +62,130 @@ class SocialLoginView(APIView):
         if not access_token:
             return Response({"detail": "Missing Google access token"}, status=400)
 
-        # ⭐ Verify Google token using People API (works for Web, Android, iOS)
-        google_url = "https://www.googleapis.com/oauth2/v3/userinfo"
-        response = requests.get(
-            google_url,
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
-
-        if response.status_code != 200:
-            return Response({"detail": "Invalid Google token"}, status=400)
-
-        data = response.json()
-
-        email = data.get("email")
-        name = data.get("name") or (email.split("@")[0] if email else None)
-
-        if not email:
-            return Response({"detail": "Google login failed"}, status=400)
-
-        # Create or fetch user
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={"username": name, "role": "user"}
-        )
-
-        return Response(generate_jwt(user), status=200)
-
-
-# =============================
-# 🟢 Register
-# =============================
-class RegisterView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
         try:
-            data = request.data.copy()
+            google_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+            response = requests.get(
+                google_url,
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
 
-            serializer = RegisterSerializer(data=data)
-            if serializer.is_valid():
-                user = serializer.save()
-                return Response(generate_jwt(user), status=201)
+            if response.status_code != 200:
+                return Response({"detail": "Invalid Google token"}, status=400)
 
-            return Response(serializer.errors, status=400)
+            data = response.json()
+            email = data.get("email")
+            name = data.get("name") or email.split("@")[0]
 
-        except Exception:
-            traceback.print_exc()
-            return Response({'detail': 'Server error in Register'}, status=500)
-
-
-# =============================
-# 🟢 Login (username/email/phone)
-# =============================
-class LoginView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        try:
-            identifier = request.data.get('identifier')
-            password = request.data.get('password')
-
-            if not identifier or not password:
-                return Response({'detail': 'Missing credentials'}, status=400)
-
-            # Find user
-            user = User.objects.filter(
-                Q(email__iexact=identifier) |
-                Q(phone=identifier) |
-                Q(username__iexact=identifier)
-            ).first()
-
-            if not user:
-                return Response({'detail': 'User not found'}, status=404)
-
-            if not user.check_password(password):
-                return Response({'detail': 'Invalid password'}, status=401)
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={"username": name, "role": "user"}
+            )
 
             return Response(generate_jwt(user), status=200)
 
         except Exception:
             traceback.print_exc()
-            return Response({'detail': 'Server error in Login'}, status=500)
+            return Response({"detail": "Google login failed"}, status=500)
 
 
-# =============================
+# ==========================================================
+# 🟢 Register
+# ==========================================================
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(generate_jwt(user), status=201)
+
+        return Response(serializer.errors, status=400)
+
+
+# ==========================================================
+# 🟢 Login
+# ==========================================================
+class LoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        identifier = request.data.get("identifier")
+        password = request.data.get("password")
+
+        if not identifier or not password:
+            return Response({"detail": "Missing credentials"}, status=400)
+
+        user = User.objects.filter(
+            Q(email__iexact=identifier) |
+            Q(phone=identifier) |
+            Q(username__iexact=identifier)
+        ).first()
+
+        if not user:
+            return Response({"detail": "User not found"}, status=404)
+
+        if not user.check_password(password):
+            return Response({"detail": "Invalid password"}, status=401)
+
+        return Response(generate_jwt(user), status=200)
+
+
+# ==========================================================
 # 🟢 Logout
-# =============================
+# ==========================================================
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        return Response({'detail': 'Logged out successfully'}, status=200)
+        return Response({"detail": "Logged out successfully"}, status=200)
 
 
-# =============================
+# ==========================================================
 # 🟢 User Profile
-# =============================
+# ==========================================================
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        return Response(UserSerializer(request.user).data, status=200)
+        return Response(UserSerializer(request.user).data)
 
     def put(self, request):
-        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        serializer = UserSerializer(
+            request.user,
+            data=request.data,
+            partial=True
+        )
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=200)
+            return Response(serializer.data)
+
         return Response(serializer.errors, status=400)
 
 
-# =============================
+# ==========================================================
 # 🟢 Notification Settings
-# =============================
+# ==========================================================
 class NotificationSettingsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def put(self, request):
-        serializer = NotificationSettingsSerializer(request.user, data=request.data, partial=True)
+        serializer = NotificationSettingsSerializer(
+            request.user,
+            data=request.data,
+            partial=True
+        )
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=200)
+            return Response(serializer.data)
+
         return Response(serializer.errors, status=400)
 
 
-# =============================
+# ==========================================================
 # 🟢 Delivery Address
-# =============================
+# ==========================================================
 class DeliveryAddressListCreateView(ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DeliveryAddressSerializer
@@ -207,29 +205,28 @@ class DeliveryAddressDetailView(RetrieveUpdateDestroyAPIView):
         return DeliveryAddress.objects.filter(user=self.request.user)
 
 
-# =============================
+# ==========================================================
 # 🟢 Delete Account
-# =============================
+# ==========================================================
 class DeleteAccountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        user = request.user
-        DeliveryAddress.objects.filter(user=user).delete()
-        user.delete()
-        return Response({"detail": "Account deleted successfully"}, status=200)
+        request.user.delete()
+        return Response({"detail": "Account deleted successfully"})
 
 
-# =============================
+# ==========================================================
 # 🟢 Forgot Password
-# =============================
+# ==========================================================
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         email = request.data.get("email")
+
         if not email:
-            return Response({'detail': 'Email is required'}, status=400)
+            return Response({"detail": "Email is required"}, status=400)
 
         try:
             user = User.objects.get(email=email)
@@ -243,15 +240,15 @@ class ForgotPasswordView(APIView):
                 recipient_list=[email],
             )
 
-            return Response({'detail': 'Reset token sent'}, status=200)
+            return Response({"detail": "Reset token sent"})
 
         except User.DoesNotExist:
-            return Response({'detail': 'User not found'}, status=404)
+            return Response({"detail": "User not found"}, status=404)
 
 
-# =============================
+# ==========================================================
 # 🟢 Reset Password
-# =============================
+# ==========================================================
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -261,19 +258,19 @@ class ResetPasswordView(APIView):
         new_password = request.data.get("new_password")
 
         if not all([email, token, new_password]):
-            return Response({'detail': 'All fields required'}, status=400)
+            return Response({"detail": "All fields required"}, status=400)
 
         try:
             user = User.objects.get(email=email)
 
-            if user.reset_token != token:
-                return Response({'detail': 'Invalid or expired token'}, status=400)
+            if user.reset_token != token or user.reset_token_expiry < timezone.now():
+                return Response({"detail": "Invalid or expired token"}, status=400)
 
             user.set_password(new_password)
             user.clear_reset_token()
             user.save()
 
-            return Response({'detail': 'Password reset successful'}, status=200)
+            return Response({"detail": "Password reset successful"})
 
         except User.DoesNotExist:
-            return Response({'detail': 'User not found'}, status=404)
+            return Response({"detail": "User not found"}, status=404)
