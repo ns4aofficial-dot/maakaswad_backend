@@ -5,8 +5,7 @@ from django.http import JsonResponse
 from .views import (
     RegisterView,
     LoginView,
-    PartnerLoginView,   # ✅ NEW
-    LogoutView,
+    PartnerLoginView,
     UserProfileView,
     DeliveryAddressListCreateView,
     DeliveryAddressDetailView,
@@ -15,6 +14,8 @@ from .views import (
     ResetPasswordView,
     DeleteAccountView,
     SocialLoginView,
+    UpdatePartnerRoleView,
+    GetPartnerRoleView,
 )
 
 # ==========================================================
@@ -42,12 +43,17 @@ urlpatterns = [
     # ------------------------------------------------------
     path("register/", RegisterView.as_view(), name="register"),
     path("login/", LoginView.as_view(), name="login"),
-    path("logout/", LogoutView.as_view(), name="logout"),
 
-    # 🔵 Partner Login (Chef / Captain App)
+    # ------------------------------------------------------
+    # 🔵 Partner App Authentication
+    # ------------------------------------------------------
     path("partner-login/", PartnerLoginView.as_view(), name="partner-login"),
+    path("partner/update-role/", UpdatePartnerRoleView.as_view(), name="update-role"),
+    path("partner/get-role/", GetPartnerRoleView.as_view(), name="get-role"),
 
-    # Social Login (Customer Only)
+    # ------------------------------------------------------
+    # 🌐 Social Login (Customer Only)
+    # ------------------------------------------------------
     path("social/", SocialLoginView.as_view(), name="social-login"),
 
     # ------------------------------------------------------
