@@ -6,11 +6,10 @@ from .views import (
     RegisterView,
     LoginView,
     PartnerLoginView,
-    PartnerRegisterView,   # ✅ ADD THIS
+    PartnerRegisterView,
     UserProfileView,
     DeliveryAddressListCreateView,
     DeliveryAddressDetailView,
-    NotificationSettingsView,
     ForgotPasswordView,
     ResetPasswordView,
     DeleteAccountView,
@@ -33,50 +32,33 @@ def health_check(request):
 
 urlpatterns = [
 
-    # ------------------------------------------------------
-    # 🟢 System
-    # ------------------------------------------------------
-    path("health/", health_check, name="health"),
+    # System
+    path("health/", health_check),
 
-    # ------------------------------------------------------
-    # 🔐 Customer Authentication
-    # ------------------------------------------------------
-    path("register/", RegisterView.as_view(), name="register"),
-    path("login/", LoginView.as_view(), name="login"),
+    # Customer Authentication
+    path("register/", RegisterView.as_view()),
+    path("login/", LoginView.as_view()),
 
-    # ------------------------------------------------------
-    # 🔵 Partner Authentication
-    # ------------------------------------------------------
-    path("partner-register/", PartnerRegisterView.as_view(), name="partner-register"),  # ✅ IMPORTANT
-    path("partner-login/", PartnerLoginView.as_view(), name="partner-login"),
-    path("partner/update-role/", UpdatePartnerRoleView.as_view(), name="update-role"),
-    path("partner/get-role/", GetPartnerRoleView.as_view(), name="get-role"),
+    # Partner Authentication
+    path("partner-register/", PartnerRegisterView.as_view()),
+    path("partner-login/", PartnerLoginView.as_view()),
+    path("partner/update-role/", UpdatePartnerRoleView.as_view()),
+    path("partner/get-role/", GetPartnerRoleView.as_view()),
 
-    # ------------------------------------------------------
-    # 🌐 Social Login
-    # ------------------------------------------------------
-    path("social/", SocialLoginView.as_view(), name="social-login"),
+    # Social Login
+    path("social/", SocialLoginView.as_view()),
 
-    # ------------------------------------------------------
-    # 👤 Profile & Settings
-    # ------------------------------------------------------
-    path("profile/", UserProfileView.as_view(), name="profile"),
-    path("notifications/", NotificationSettingsView.as_view(), name="notifications"),
+    # Profile
+    path("profile/", UserProfileView.as_view()),
 
-    # ------------------------------------------------------
-    # 📍 Delivery Address
-    # ------------------------------------------------------
-    path("addresses/", DeliveryAddressListCreateView.as_view(), name="address-list-create"),
-    path("addresses/<int:pk>/", DeliveryAddressDetailView.as_view(), name="address-detail"),
+    # Delivery Address
+    path("addresses/", DeliveryAddressListCreateView.as_view()),
+    path("addresses/<int:pk>/", DeliveryAddressDetailView.as_view()),
 
-    # ------------------------------------------------------
-    # 🔑 Password
-    # ------------------------------------------------------
-    path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
-    path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
+    # Password
+    path("forgot-password/", ForgotPasswordView.as_view()),
+    path("reset-password/", ResetPasswordView.as_view()),
 
-    # ------------------------------------------------------
-    # ❌ Account
-    # ------------------------------------------------------
-    path("delete-account/", DeleteAccountView.as_view(), name="delete-account"),
+    # Account
+    path("delete-account/", DeleteAccountView.as_view()),
 ]
