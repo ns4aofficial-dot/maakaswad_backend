@@ -81,11 +81,10 @@ class SocialLoginView(APIView):
                 defaults={
                     "username": name,
                     "role": "user",
-                    "is_approved": True  # customers auto approved
+                    "is_approved": True
                 }
             )
 
-            # ❌ Block partner login in customer app
             if user.role != "user":
                 return Response(
                     {"detail": "Partner accounts cannot login here"},
@@ -119,7 +118,7 @@ class RegisterView(APIView):
 
 
 # ==========================================================
-# 🟢 CUSTOMER LOGIN (ONLY role=user)
+# 🟢 CUSTOMER LOGIN
 # ==========================================================
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -143,18 +142,14 @@ class LoginView(APIView):
         if not user.check_password(password):
             return Response({"detail": "Invalid password"}, status=401)
 
-        # ❌ Block chef/captain from customer app
         if user.role != "user":
-            return Response(
-                {"detail": "Partner accounts not allowed here"},
-                status=403
-            )
+            return Response({"detail": "Partner accounts not allowed here"}, status=403)
 
         return Response(generate_jwt(user), status=200)
 
 
 # ==========================================================
-# 🔵 PARTNER LOGIN (Chef / Captain Only)
+# 🔵 PARTNER LOGIN
 # ==========================================================
 class PartnerLoginView(APIView):
     permission_classes = [AllowAny]
@@ -178,42 +173,59 @@ class PartnerLoginView(APIView):
         if not user.check_password(password):
             return Response({"detail": "Invalid password"}, status=401)
 
-        # ✅ Allow only chef or captain
         if user.role not in ["chef", "captain"]:
-            return Response(
-                {"detail": "Not a partner account"},
-                status=403
-            )
+            return Response({"detail": "Not a partner account"}, status=403)
 
-        # 💰 Registration fee check
         if not user.registration_paid:
-            return Response(
-                {"detail": "Registration fee not paid"},
-                status=403
-            )
+            return Response({"detail": "Registration fee not paid"}, status=403)
 
-        # 🛑 Admin approval check
         if not user.is_approved:
-            return Response(
-                {"detail": "Waiting for admin approval"},
-                status=403
-            )
+            return Response({"detail": "Waiting for admin approval"}, status=403)
 
         return Response(generate_jwt(user), status=200)
 
 
 # ==========================================================
-# 🟢 Logout
+# 🔵 UPDATE PARTNER ROLE
 # ==========================================================
-class LogoutView(APIView):
+class UpdatePartnerRoleView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        return Response({"detail": "Logged out successfully"}, status=200)
+        role = request.data.get("role")
+
+        if role not in ["chef", "captain"]:
+            return Response({"detail": "Invalid role"}, status=400)
+
+        user = request.user
+        user.role = role
+        user.is_approved = False
+        user.registration_paid = False
+        user.save()
+
+        return Response(
+            {"detail": "Role updated successfully. Awaiting admin approval."},
+            status=200
+        )
 
 
 # ==========================================================
-# 🟢 User Profile
+# 🔵 GET PARTNER ROLE
+# ==========================================================
+class GetPartnerRoleView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            "role": user.role,
+            "is_approved": user.is_approved,
+            "registration_paid": user.registration_paid
+        })
+
+
+# ==========================================================
+# 🟢 USER PROFILE
 # ==========================================================
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -235,7 +247,7 @@ class UserProfileView(APIView):
 
 
 # ==========================================================
-# 🟢 Notification Settings
+# 🟢 NOTIFICATION SETTINGS
 # ==========================================================
 class NotificationSettingsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -254,7 +266,7 @@ class NotificationSettingsView(APIView):
 
 
 # ==========================================================
-# 🟢 Delivery Address
+# 🟢 DELIVERY ADDRESS
 # ==========================================================
 class DeliveryAddressListCreateView(ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -276,7 +288,7 @@ class DeliveryAddressDetailView(RetrieveUpdateDestroyAPIView):
 
 
 # ==========================================================
-# 🟢 Delete Account
+# 🟢 DELETE ACCOUNT
 # ==========================================================
 class DeleteAccountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -287,7 +299,7 @@ class DeleteAccountView(APIView):
 
 
 # ==========================================================
-# 🟢 Forgot Password
+# 🟢 FORGOT PASSWORD
 # ==========================================================
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
@@ -317,7 +329,7 @@ class ForgotPasswordView(APIView):
 
 
 # ==========================================================
-# 🟢 Reset Password
+# 🟢 RESET PASSWORD
 # ==========================================================
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
