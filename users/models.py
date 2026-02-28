@@ -25,9 +25,9 @@ class User(AbstractUser):
     # Role System
     # -------------------------------------------------------
     ROLE_CHOICES = (
-        ('user', 'User'),        # Customer
-        ('chef', 'Chef'),        # Mother Partner
-        ('captain', 'Captain'),  # Delivery Partner
+        ('user', 'User'),
+        ('chef', 'Chef'),
+        ('captain', 'Captain'),
     )
 
     role = models.CharField(
@@ -37,7 +37,22 @@ class User(AbstractUser):
     )
 
     # -------------------------------------------------------
-    # Partner Approval & Payment System
+    # 🧾 Partner Documents
+    # -------------------------------------------------------
+    aadhaar_number = models.CharField(max_length=20, blank=True, null=True)
+    pan_number = models.CharField(max_length=20, blank=True, null=True)
+    food_license_number = models.CharField(max_length=50, blank=True, null=True)
+
+    bank_account_number = models.CharField(max_length=30, blank=True, null=True)
+    ifsc_code = models.CharField(max_length=20, blank=True, null=True)
+
+    aadhaar_image = models.ImageField(upload_to='documents/aadhaar/', blank=True, null=True)
+    pan_image = models.ImageField(upload_to='documents/pan/', blank=True, null=True)
+
+    documents_submitted = models.BooleanField(default=False)
+
+    # -------------------------------------------------------
+    # 💰 Partner Approval & Payment
     # -------------------------------------------------------
     registration_paid = models.BooleanField(default=False)
     is_approved = models.BooleanField(default=False)
@@ -69,7 +84,7 @@ class User(AbstractUser):
     city = models.CharField(max_length=50, blank=True, null=True)
 
     # -------------------------------------------------------
-    # Reset Password fields
+    # Reset Password
     # -------------------------------------------------------
     reset_token = models.CharField(max_length=64, blank=True, null=True)
     reset_token_expiry = models.DateTimeField(blank=True, null=True)

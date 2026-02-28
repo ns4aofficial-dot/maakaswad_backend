@@ -19,15 +19,13 @@ ALLOWED_HOSTS = [
     "maakaswad.onrender.com",
     "localhost",
     "127.0.0.1",
-    "[::1]",
-    "*",  # allow everything (for testing)
 ]
 
-# ⭐ UPDATED - Allow Flutter App
+# =========================
+# 🌐 CSRF Trusted Origins
+# =========================
 CSRF_TRUSTED_ORIGINS = [
     "https://maakaswad.onrender.com",
-    "http://localhost",
-    "http://127.0.0.1",
 ]
 
 # =========================
@@ -37,6 +35,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
+    'rest_framework_simplejwt',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -52,7 +51,6 @@ INSTALLED_APPS = [
     'payments',
 ]
 
-# ⭐ IMPORTANT FOR SOCIAL LOGIN
 AUTH_USER_MODEL = 'users.User'
 
 AUTHENTICATION_BACKENDS = [
@@ -66,11 +64,12 @@ AUTHENTICATION_BACKENDS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # static files
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
 
-    # ⭐ You disabled CSRF for Flutter – OK
+    # CSRF disabled for API-based mobile apps
     # 'django.middleware.csrf.CsrfViewMiddleware',
 
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -81,7 +80,7 @@ MIDDLEWARE = [
 # =========================
 # 🌐 CORS Settings
 # =========================
-CORS_ALLOW_ALL_ORIGINS = True  # allow mobile/web apps
+CORS_ALLOW_ALL_ORIGINS = True  # For mobile app access
 
 # =========================
 # 🔧 Project Settings
@@ -111,7 +110,10 @@ WSGI_APPLICATION = 'maakaswad.wsgi.application'
 # =========================
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL', f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+        default=os.environ.get(
+            'DATABASE_URL',
+            f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+        ),
         conn_max_age=600
     )
 }
@@ -138,21 +140,19 @@ USE_TZ = True
 # 📁 Static & Media Files
 # =========================
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Whitenoise
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
 # =========================
-# ⭐ UPDATED — REST Framework with JWT
+# ⭐ REST Framework (JWT)
 # =========================
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # ⭐ Use JWT
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
@@ -162,10 +162,14 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',  # ⭐ for image upload
+        'rest_framework.parsers.FormParser',
     ],
 }
 
-# ⭐ JWT SETTINGS (optional but recommended)
+# =========================
+# ⭐ JWT Settings
+# =========================
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
@@ -173,7 +177,7 @@ SIMPLE_JWT = {
 }
 
 # =========================
-# 🔑 Razorpay
+# 💳 Razorpay
 # =========================
 RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
 RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
@@ -194,6 +198,6 @@ else:
 DEFAULT_FROM_EMAIL = "no-reply@maakaswad.com"
 
 # =========================
-# 🔧 Other Settings
+# 🔧 Default Auto Field
 # =========================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
