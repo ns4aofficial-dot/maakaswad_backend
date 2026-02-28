@@ -6,6 +6,7 @@ from .views import (
     RegisterView,
     LoginView,
     PartnerLoginView,
+    PartnerRegisterView,   # ✅ ADD THIS
     UserProfileView,
     DeliveryAddressListCreateView,
     DeliveryAddressDetailView,
@@ -26,7 +27,6 @@ from .views import (
 def health_check(request):
     return JsonResponse({"status": "ok"}, status=200)
 
-
 # ==========================================================
 # 🟢 URL Patterns
 # ==========================================================
@@ -39,25 +39,26 @@ urlpatterns = [
     path("health/", health_check, name="health"),
 
     # ------------------------------------------------------
-    # 🔐 Authentication (Customer App)
+    # 🔐 Customer Authentication
     # ------------------------------------------------------
     path("register/", RegisterView.as_view(), name="register"),
     path("login/", LoginView.as_view(), name="login"),
 
     # ------------------------------------------------------
-    # 🔵 Partner App Authentication
+    # 🔵 Partner Authentication
     # ------------------------------------------------------
+    path("partner-register/", PartnerRegisterView.as_view(), name="partner-register"),  # ✅ IMPORTANT
     path("partner-login/", PartnerLoginView.as_view(), name="partner-login"),
     path("partner/update-role/", UpdatePartnerRoleView.as_view(), name="update-role"),
     path("partner/get-role/", GetPartnerRoleView.as_view(), name="get-role"),
 
     # ------------------------------------------------------
-    # 🌐 Social Login (Customer Only)
+    # 🌐 Social Login
     # ------------------------------------------------------
     path("social/", SocialLoginView.as_view(), name="social-login"),
 
     # ------------------------------------------------------
-    # 👤 User Profile & Settings
+    # 👤 Profile & Settings
     # ------------------------------------------------------
     path("profile/", UserProfileView.as_view(), name="profile"),
     path("notifications/", NotificationSettingsView.as_view(), name="notifications"),
@@ -69,13 +70,13 @@ urlpatterns = [
     path("addresses/<int:pk>/", DeliveryAddressDetailView.as_view(), name="address-detail"),
 
     # ------------------------------------------------------
-    # 🔑 Password Management
+    # 🔑 Password
     # ------------------------------------------------------
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
     path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
 
     # ------------------------------------------------------
-    # ❌ Account Management
+    # ❌ Account
     # ------------------------------------------------------
     path("delete-account/", DeleteAccountView.as_view(), name="delete-account"),
 ]

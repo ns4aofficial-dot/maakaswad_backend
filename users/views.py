@@ -1,14 +1,18 @@
 ﻿from django.db.models import Q
+from django.contrib.auth import get_user_model
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from django.utils.crypto import get_random_string
+from django.core.mail import send_mail
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.permissions import AllowAny
-from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
-from django.utils.crypto import get_random_string
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.utils import timezone
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework_simplejwt.tokens import RefreshToken
+
 import traceback
 import requests
 
@@ -20,11 +24,7 @@ from .serializers import (
 )
 from .models import DeliveryAddress
 
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-from rest_framework_simplejwt.tokens import RefreshToken
-
 User = get_user_model()
-
 
 # ==========================================================
 # ✅ JWT GENERATOR
@@ -37,9 +37,8 @@ def generate_jwt(user):
         "user": UserSerializer(user).data
     }
 
-
 # ==========================================================
-# 🟢 Health Check
+# 🟢 HEALTH CHECK
 # ==========================================================
 @csrf_exempt
 def health_check(request):
@@ -47,7 +46,7 @@ def health_check(request):
 
 
 # ==========================================================
-# 🟢 Google Social Login (Customer Only)
+# 🟢 GOOGLE SOCIAL LOGIN (CUSTOMER ONLY)
 # ==========================================================
 class SocialLoginView(APIView):
     permission_classes = [AllowAny]
@@ -63,9 +62,8 @@ class SocialLoginView(APIView):
             return Response({"detail": "Missing Google access token"}, status=400)
 
         try:
-            google_url = "https://www.googleapis.com/oauth2/v3/userinfo"
             response = requests.get(
-                google_url,
+                "https://www.googleapis.com/oauth2/v3/userinfo",
                 headers={"Authorization": f"Bearer {access_token}"}
             )
 
@@ -86,10 +84,7 @@ class SocialLoginView(APIView):
             )
 
             if user.role != "user":
-                return Response(
-                    {"detail": "Partner accounts cannot login here"},
-                    status=403
-                )
+                return Response({"detail": "Partner accounts cannot login here"}, status=403)
 
             return Response(generate_jwt(user), status=200)
 
@@ -112,6 +107,27 @@ class RegisterView(APIView):
             user.role = "user"
             user.is_approved = True
             user.save()
+            return Response(generate_jwt(user), status=201)
+
+        return Response(serializer.errors, status=400)
+
+
+# ==========================================================
+# 🔵 PARTNER REGISTER
+# ==========================================================
+class PartnerRegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+
+        if serializer.is_valid():
+            user = serializer.save()
+            user.role = "chef"  # default
+            user.is_approved = False
+            user.registration_paid = False
+            user.save()
+
             return Response(generate_jwt(user), status=201)
 
         return Response(serializer.errors, status=400)
@@ -203,10 +219,7 @@ class UpdatePartnerRoleView(APIView):
         user.registration_paid = False
         user.save()
 
-        return Response(
-            {"detail": "Role updated successfully. Awaiting admin approval."},
-            status=200
-        )
+        return Response({"detail": "Role updated. Awaiting admin approval."})
 
 
 # ==========================================================
@@ -234,30 +247,7 @@ class UserProfileView(APIView):
         return Response(UserSerializer(request.user).data)
 
     def put(self, request):
-        serializer = UserSerializer(
-            request.user,
-            data=request.data,
-            partial=True
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-
-        return Response(serializer.errors, status=400)
-
-
-# ==========================================================
-# 🟢 NOTIFICATION SETTINGS
-# ==========================================================
-class NotificationSettingsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def put(self, request):
-        serializer = NotificationSettingsSerializer(
-            request.user,
-            data=request.data,
-            partial=True
-        )
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -316,8 +306,8 @@ class ForgotPasswordView(APIView):
             user.set_reset_token(token)
 
             send_mail(
-                subject="Password Reset Request",
-                message=f"Use this token to reset your password: {token}",
+                subject="Password Reset",
+                message=f"Reset token: {token}",
                 from_email="noreply@maakaswad.com",
                 recipient_list=[email],
             )
