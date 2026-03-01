@@ -22,7 +22,7 @@ from .serializers import (
     RegisterSerializer,
     DeliveryAddressSerializer,
     NotificationSettingsSerializer,
-    PartnerDocumentSerializer   # ✅ NEW
+    PartnerDocumentSerializer
 )
 from .models import DeliveryAddress
 
@@ -82,7 +82,8 @@ class SocialLoginView(APIView):
                 defaults={
                     "username": name,
                     "role": "user",
-                    "is_approved": True
+                    "is_approved": True,
+                    "registration_paid": True
                 }
             )
 
@@ -155,11 +156,8 @@ class LoginView(APIView):
             Q(username__iexact=identifier)
         ).first()
 
-        if not user:
-            return Response({"detail": "User not found"}, status=404)
-
-        if not user.check_password(password):
-            return Response({"detail": "Invalid password"}, status=401)
+        if not user or not user.check_password(password):
+            return Response({"detail": "Invalid credentials"}, status=401)
 
         if user.role != "user":
             return Response({"detail": "Partner accounts not allowed here"}, status=403)
@@ -186,11 +184,8 @@ class PartnerLoginView(APIView):
             Q(username__iexact=identifier)
         ).first()
 
-        if not user:
-            return Response({"detail": "User not found"}, status=404)
-
-        if not user.check_password(password):
-            return Response({"detail": "Invalid password"}, status=401)
+        if not user or not user.check_password(password):
+            return Response({"detail": "Invalid credentials"}, status=401)
 
         if user.role not in ["chef", "captain"]:
             return Response({"detail": "Not a partner account"}, status=403)
@@ -241,10 +236,7 @@ class PartnerDocumentsView(APIView):
 
         if serializer.is_valid():
             serializer.save()
-            return Response(
-                {"detail": "Documents submitted successfully"},
-                status=200
-            )
+            return Response({"detail": "Documents submitted successfully"}, status=200)
 
         return Response(serializer.errors, status=400)
 
@@ -278,7 +270,24 @@ class UserProfileView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
+        return Response(serializer.errors, status=400)
 
+
+# ==========================================================
+# 🟢 NOTIFICATION SETTINGS  ✅ (FIXED)
+# ==========================================================
+class NotificationSettingsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request):
+        serializer = NotificationSettingsSerializer(
+            request.user,
+            data=request.data,
+            partial=True
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
         return Response(serializer.errors, status=400)
 
 
