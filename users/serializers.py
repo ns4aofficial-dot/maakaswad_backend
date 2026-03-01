@@ -6,7 +6,7 @@ User = get_user_model()
 
 
 # ===========================================================
-# ✅ USER PROFILE SERIALIZER (Includes KYC Fields)
+# ✅ USER PROFILE SERIALIZER (Includes KYC + ONLINE STATUS)
 # ===========================================================
 
 class UserSerializer(serializers.ModelSerializer):
@@ -32,8 +32,10 @@ class UserSerializer(serializers.ModelSerializer):
             'aadhaar_image',
             'pan_image',
 
+            # 🔥 Partner Status
             'registration_paid',
             'is_approved',
+            'is_online',   # ✅ ADDED THIS
         ]
 
         read_only_fields = [

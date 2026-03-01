@@ -382,3 +382,36 @@ class ResetPasswordView(APIView):
 
         except User.DoesNotExist:
             return Response({"detail": "User not found"}, status=404)
+
+        # ==========================================================
+# 🔥 UPDATE ONLINE STATUS (CHEF / CAPTAIN)
+# ==========================================================
+
+class UpdateOnlineStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request):
+        user = request.user
+
+        # Only chef or captain can change online status
+        if user.role not in ["chef", "captain"]:
+            return Response(
+                {"detail": "Only partners can update online status"},
+                status=403
+            )
+
+        is_online = request.data.get("is_online")
+
+        if is_online is None:
+            return Response(
+                {"detail": "is_online field is required"},
+                status=400
+            )
+
+        user.is_online = is_online
+        user.save(update_fields=["is_online"])
+
+        return Response({
+            "message": "Online status updated successfully",
+            "is_online": user.is_online
+        }, status=200)

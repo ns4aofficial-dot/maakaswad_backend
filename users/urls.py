@@ -17,7 +17,8 @@ from .views import (
     UpdatePartnerRoleView,
     GetPartnerRoleView,
     NotificationSettingsView,
-    PartnerDocumentsView,          # ✅ NEW
+    PartnerDocumentsView,
+    UpdateOnlineStatusView,   # ✅ FIXED IMPORT
 )
 
 # ==========================================================
@@ -56,6 +57,9 @@ urlpatterns = [
 
     # 🔥 Partner KYC Submission
     path("partner/documents/", PartnerDocumentsView.as_view(), name="partner-documents"),
+
+    # 🔥 Online / Offline Toggle API (FIXED)
+    path("update-online-status/", UpdateOnlineStatusView.as_view(), name="update-online-status"),
 
     # ------------------------------------------------------
     # 🌐 Social Login
