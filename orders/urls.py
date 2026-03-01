@@ -1,5 +1,6 @@
 ﻿from django.urls import path
 from .views import (
+
     # Customer
     PlaceOrderView,
     UserOrderListView,
@@ -17,6 +18,7 @@ from .views import (
 
     # Chef
     ChefOrderListView,
+    ChefAcceptOrderView,   # ✅ Added
     ChefUpdateStatusView,
 
     # Captain
@@ -52,6 +54,7 @@ urlpatterns = [
     # 👩‍🍳 CHEF APIs
     # ======================================================
     path('chef/orders/', ChefOrderListView.as_view(), name='chef-orders'),
+    path('chef/accept/<int:order_id>/', ChefAcceptOrderView.as_view(), name='chef-accept-order'),  # ✅ Added
     path('chef/update-status/<int:order_id>/', ChefUpdateStatusView.as_view(), name='chef-update-status'),
 
     # ======================================================
@@ -60,6 +63,6 @@ urlpatterns = [
     path('captain/orders/', CaptainOrderListView.as_view(), name='captain-orders'),
     path('captain/update-status/<int:order_id>/', CaptainUpdateStatusView.as_view(), name='captain-update-status'),
 
-    # Assign Captain to Order (Admin or System)
+    # Assign Captain
     path('assign-captain/<int:order_id>/', AssignCaptainView.as_view(), name='assign-captain'),
 ]

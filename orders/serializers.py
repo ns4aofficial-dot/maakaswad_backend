@@ -34,7 +34,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     food_item_name = serializers.CharField(source='food_item.name', read_only=True)
     food_item_price = serializers.DecimalField(
         source='food_item.price',
-        max_digits=8,
+        max_digits=10,
         decimal_places=2,
         read_only=True
     )
@@ -81,22 +81,24 @@ class OrderSerializer(serializers.ModelSerializer):
         ]
 
     def get_driver_location(self, obj):
-        return {
-            "latitude": float(obj.driver_latitude) if obj.driver_latitude else None,
-            "longitude": float(obj.driver_longitude) if obj.driver_longitude else None
-        }
+        if obj.driver_latitude and obj.driver_longitude:
+            return {
+                "latitude": float(obj.driver_latitude),
+                "longitude": float(obj.driver_longitude)
+            }
+        return None
 
     def get_destination(self, obj):
-        if obj.delivery_address:
+        if obj.delivery_address and obj.delivery_address.latitude and obj.delivery_address.longitude:
             return {
-                "latitude": float(obj.delivery_address.latitude) if obj.delivery_address.latitude else None,
-                "longitude": float(obj.delivery_address.longitude) if obj.delivery_address.longitude else None
+                "latitude": float(obj.delivery_address.latitude),
+                "longitude": float(obj.delivery_address.longitude)
             }
         return None
 
 
 # ==========================================================
-# 📄 Order Detail Serializer  ✅ FIX ADDED
+# 📄 Order Detail Serializer
 # ==========================================================
 class OrderDetailSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
@@ -143,6 +145,9 @@ class PlaceOrderSerializer(serializers.Serializer):
     def validate(self, attrs):
         request = self.context.get('request')
 
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError("Authentication required.")
+
         try:
             address = DeliveryAddress.objects.get(
                 id=attrs.get('delivery_address_id'),
@@ -182,6 +187,7 @@ class PlaceOrderSerializer(serializers.Serializer):
                 try:
                     price = Decimal(str(food.price))
                 except (InvalidOperation, TypeError, ValueError):
+                    logger.error(f"Invalid price for food item {food.id}")
                     price = Decimal('0.00')
 
                 total_price += price * Decimal(quantity)

@@ -2,6 +2,7 @@
 from datetime import timedelta
 from django.utils.timezone import now
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -28,7 +29,10 @@ class PlaceOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        serializer = PlaceOrderSerializer(data=request.data, context={'request': request})
+        serializer = PlaceOrderSerializer(
+            data=request.data,
+            context={'request': request}
+        )
 
         if serializer.is_valid():
             order = serializer.save()
@@ -78,7 +82,7 @@ class CancelOrderView(APIView):
 
 
 # ==========================================================
-# 👩‍🍳 CHEF - View Orders
+# 👩‍🍳 CHEF - View Orders (FIXED FILTER)
 # ==========================================================
 class ChefOrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -88,12 +92,10 @@ class ChefOrderListView(generics.ListAPIView):
         if self.request.user.role != "chef":
             return Order.objects.none()
 
-        # 🔥 Show:
-        # 1. Pending orders (not yet accepted)
-        # 2. Orders assigned to this chef
         return Order.objects.filter(
-            status__in=["pending", "accepted", "preparing", "ready_for_pickup"]
-        )
+            Q(assigned_chef=self.request.user) |
+            Q(status="pending")
+        ).distinct().order_by("-created_at")
 
 
 # ==========================================================
@@ -103,6 +105,7 @@ class ChefAcceptOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, order_id):
+
         if request.user.role != "chef":
             return Response({"detail": "Only chef allowed."}, status=403)
 
@@ -125,12 +128,21 @@ class ChefUpdateStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request, order_id):
+
         if request.user.role != "chef":
             return Response({"detail": "Only chef allowed."}, status=403)
 
-        order = get_object_or_404(Order, id=order_id, assigned_chef=request.user)
+        order = get_object_or_404(
+            Order,
+            id=order_id,
+            assigned_chef=request.user
+        )
 
-        serializer = ChefStatusUpdateSerializer(order, data=request.data, partial=True)
+        serializer = ChefStatusUpdateSerializer(
+            order,
+            data=request.data,
+            partial=True
+        )
 
         if serializer.is_valid():
             serializer.save()
@@ -152,7 +164,7 @@ class CaptainOrderListView(generics.ListAPIView):
 
         return Order.objects.filter(
             assigned_captain=self.request.user
-        )
+        ).order_by("-created_at")
 
 
 # ==========================================================
@@ -162,12 +174,21 @@ class CaptainUpdateStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request, order_id):
+
         if request.user.role != "captain":
             return Response({"detail": "Only captain allowed."}, status=403)
 
-        order = get_object_or_404(Order, id=order_id, assigned_captain=request.user)
+        order = get_object_or_404(
+            Order,
+            id=order_id,
+            assigned_captain=request.user
+        )
 
-        serializer = CaptainStatusUpdateSerializer(order, data=request.data, partial=True)
+        serializer = CaptainStatusUpdateSerializer(
+            order,
+            data=request.data,
+            partial=True
+        )
 
         if serializer.is_valid():
             serializer.save()
@@ -183,15 +204,24 @@ class AssignCaptainView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, order_id):
+
         if request.user.role != "chef":
             return Response({"detail": "Only chef allowed."}, status=403)
 
-        order = get_object_or_404(Order, id=order_id, assigned_chef=request.user)
+        order = get_object_or_404(
+            Order,
+            id=order_id,
+            assigned_chef=request.user
+        )
 
         captain_id = request.data.get("captain_id")
 
         from users.models import User
-        captain = get_object_or_404(User, id=captain_id, role="captain")
+        captain = get_object_or_404(
+            User,
+            id=captain_id,
+            role="captain"
+        )
 
         order.assigned_captain = captain
         order.status = "assigned"
@@ -207,7 +237,12 @@ class TrackOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, order_id):
-        order = get_object_or_404(Order, id=order_id, user=request.user)
+        order = get_object_or_404(
+            Order,
+            id=order_id,
+            user=request.user
+        )
+
         return Response(OrderSerializer(order).data)
 
 
@@ -218,12 +253,21 @@ class UpdateDriverLocationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request, order_id):
+
         if request.user.role != "captain":
             return Response({"detail": "Only captain allowed."}, status=403)
 
-        order = get_object_or_404(Order, id=order_id, assigned_captain=request.user)
+        order = get_object_or_404(
+            Order,
+            id=order_id,
+            assigned_captain=request.user
+        )
 
-        serializer = DriverLocationUpdateSerializer(order, data=request.data, partial=True)
+        serializer = DriverLocationUpdateSerializer(
+            order,
+            data=request.data,
+            partial=True
+        )
 
         if serializer.is_valid():
             serializer.save()
