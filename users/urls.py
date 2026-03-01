@@ -16,6 +16,8 @@ from .views import (
     SocialLoginView,
     UpdatePartnerRoleView,
     GetPartnerRoleView,
+    NotificationSettingsView,
+    PartnerDocumentsView,          # ✅ NEW
 )
 
 # ==========================================================
@@ -26,39 +28,60 @@ from .views import (
 def health_check(request):
     return JsonResponse({"status": "ok"}, status=200)
 
+
 # ==========================================================
 # 🟢 URL Patterns
 # ==========================================================
 
 urlpatterns = [
 
-    # System
-    path("health/", health_check),
+    # ------------------------------------------------------
+    # 🟢 System
+    # ------------------------------------------------------
+    path("health/", health_check, name="health"),
 
-    # Customer Authentication
-    path("register/", RegisterView.as_view()),
-    path("login/", LoginView.as_view()),
+    # ------------------------------------------------------
+    # 🔐 Customer Authentication
+    # ------------------------------------------------------
+    path("register/", RegisterView.as_view(), name="register"),
+    path("login/", LoginView.as_view(), name="login"),
 
-    # Partner Authentication
-    path("partner-register/", PartnerRegisterView.as_view()),
-    path("partner-login/", PartnerLoginView.as_view()),
-    path("partner/update-role/", UpdatePartnerRoleView.as_view()),
-    path("partner/get-role/", GetPartnerRoleView.as_view()),
+    # ------------------------------------------------------
+    # 🔵 Partner Authentication
+    # ------------------------------------------------------
+    path("partner-register/", PartnerRegisterView.as_view(), name="partner-register"),
+    path("partner-login/", PartnerLoginView.as_view(), name="partner-login"),
+    path("partner/update-role/", UpdatePartnerRoleView.as_view(), name="update-role"),
+    path("partner/get-role/", GetPartnerRoleView.as_view(), name="get-role"),
 
-    # Social Login
-    path("social/", SocialLoginView.as_view()),
+    # 🔥 Partner KYC Submission
+    path("partner/documents/", PartnerDocumentsView.as_view(), name="partner-documents"),
 
-    # Profile
-    path("profile/", UserProfileView.as_view()),
+    # ------------------------------------------------------
+    # 🌐 Social Login
+    # ------------------------------------------------------
+    path("social/", SocialLoginView.as_view(), name="social-login"),
 
-    # Delivery Address
-    path("addresses/", DeliveryAddressListCreateView.as_view()),
-    path("addresses/<int:pk>/", DeliveryAddressDetailView.as_view()),
+    # ------------------------------------------------------
+    # 👤 Profile & Settings
+    # ------------------------------------------------------
+    path("profile/", UserProfileView.as_view(), name="profile"),
+    path("notifications/", NotificationSettingsView.as_view(), name="notifications"),
 
-    # Password
-    path("forgot-password/", ForgotPasswordView.as_view()),
-    path("reset-password/", ResetPasswordView.as_view()),
+    # ------------------------------------------------------
+    # 📍 Delivery Address
+    # ------------------------------------------------------
+    path("addresses/", DeliveryAddressListCreateView.as_view(), name="address-list-create"),
+    path("addresses/<int:pk>/", DeliveryAddressDetailView.as_view(), name="address-detail"),
 
-    # Account
-    path("delete-account/", DeleteAccountView.as_view()),
+    # ------------------------------------------------------
+    # 🔑 Password
+    # ------------------------------------------------------
+    path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
+    path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
+
+    # ------------------------------------------------------
+    # ❌ Account
+    # ------------------------------------------------------
+    path("delete-account/", DeleteAccountView.as_view(), name="delete-account"),
 ]

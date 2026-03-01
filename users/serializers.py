@@ -6,7 +6,7 @@ User = get_user_model()
 
 
 # ===========================================================
-# ✅ USER PROFILE SERIALIZER
+# ✅ USER PROFILE SERIALIZER (Now Includes KYC Fields)
 # ===========================================================
 
 class UserSerializer(serializers.ModelSerializer):
@@ -22,9 +22,21 @@ class UserSerializer(serializers.ModelSerializer):
             'captain_id',
             'vehicle_number',
             'city',
-            'registration_paid',   # ✅ NEW
-            'is_approved',         # ✅ NEW
+
+            # 🔥 KYC Fields
+            'aadhaar_number',
+            'pan_number',
+            'food_license_number',
+            'bank_account_number',
+            'ifsc_code',
+            'address',
+            'aadhaar_image',
+            'pan_image',
+
+            'registration_paid',
+            'is_approved',
         ]
+
         read_only_fields = [
             'id',
             'username',
@@ -36,7 +48,45 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 # ===========================================================
-# ✅ REGISTRATION SERIALIZER (Customer + Partner Ready)
+# ✅ PARTNER DOCUMENT (KYC) SERIALIZER
+# ===========================================================
+
+class PartnerDocumentSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = [
+            "aadhaar_number",
+            "pan_number",
+            "food_license_number",
+            "bank_account_number",
+            "ifsc_code",
+            "address",
+            "aadhaar_image",
+            "pan_image",
+        ]
+
+    # 🔐 Aadhaar Validation
+    def validate_aadhaar_number(self, value):
+        if not value.isdigit() or len(value) != 12:
+            raise serializers.ValidationError("Invalid Aadhaar number.")
+        return value
+
+    # 🔐 PAN Validation
+    def validate_pan_number(self, value):
+        if len(value) != 10:
+            raise serializers.ValidationError("Invalid PAN number.")
+        return value
+
+    # 🔐 IFSC Validation
+    def validate_ifsc_code(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Invalid IFSC code.")
+        return value
+
+
+# ===========================================================
+# ✅ REGISTRATION SERIALIZER
 # ===========================================================
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -67,7 +117,6 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate(self, data):
         role = data.get("role")
 
-        # 🚴 Captain validation
         if role == "captain":
             if not data.get("captain_id"):
                 raise serializers.ValidationError({
@@ -99,17 +148,14 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         user.role = role
 
-        # 🟢 Customer → auto approved
         if role == "user":
             user.is_approved = True
             user.registration_paid = True
 
-        # 🔵 Partner (Chef / Captain) → wait approval
         if role in ["chef", "captain"]:
             user.is_approved = False
             user.registration_paid = False
 
-        # Extra captain fields
         if role == "captain":
             user.captain_id = captain_id
             user.vehicle_number = vehicle_number

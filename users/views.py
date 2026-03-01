@@ -12,6 +12,7 @@ from rest_framework import status, permissions
 from rest_framework.permissions import AllowAny
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.parsers import MultiPartParser, FormParser
 
 import traceback
 import requests
@@ -20,7 +21,8 @@ from .serializers import (
     UserSerializer,
     RegisterSerializer,
     DeliveryAddressSerializer,
-    NotificationSettingsSerializer
+    NotificationSettingsSerializer,
+    PartnerDocumentSerializer   # ✅ NEW
 )
 from .models import DeliveryAddress
 
@@ -37,6 +39,7 @@ def generate_jwt(user):
         "user": UserSerializer(user).data
     }
 
+
 # ==========================================================
 # 🟢 HEALTH CHECK
 # ==========================================================
@@ -46,7 +49,7 @@ def health_check(request):
 
 
 # ==========================================================
-# 🟢 GOOGLE SOCIAL LOGIN (CUSTOMER ONLY)
+# 🟢 GOOGLE SOCIAL LOGIN
 # ==========================================================
 class SocialLoginView(APIView):
     permission_classes = [AllowAny]
@@ -106,6 +109,7 @@ class RegisterView(APIView):
             user = serializer.save()
             user.role = "user"
             user.is_approved = True
+            user.registration_paid = True
             user.save()
             return Response(generate_jwt(user), status=201)
 
@@ -123,11 +127,10 @@ class PartnerRegisterView(APIView):
 
         if serializer.is_valid():
             user = serializer.save()
-            user.role = "chef"  # default
+            user.role = "chef"
             user.is_approved = False
             user.registration_paid = False
             user.save()
-
             return Response(generate_jwt(user), status=201)
 
         return Response(serializer.errors, status=400)
@@ -202,7 +205,7 @@ class PartnerLoginView(APIView):
 
 
 # ==========================================================
-# 🔵 UPDATE PARTNER ROLE
+# 🔵 UPDATE ROLE
 # ==========================================================
 class UpdatePartnerRoleView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -219,11 +222,35 @@ class UpdatePartnerRoleView(APIView):
         user.registration_paid = False
         user.save()
 
-        return Response({"detail": "Role updated. Awaiting admin approval."})
+        return Response({"detail": "Role updated. Submit documents."})
 
 
 # ==========================================================
-# 🔵 GET PARTNER ROLE
+# 🔥 PARTNER DOCUMENT SUBMISSION
+# ==========================================================
+class PartnerDocumentsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def put(self, request):
+        serializer = PartnerDocumentSerializer(
+            request.user,
+            data=request.data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"detail": "Documents submitted successfully"},
+                status=200
+            )
+
+        return Response(serializer.errors, status=400)
+
+
+# ==========================================================
+# 🔵 GET ROLE STATUS
 # ==========================================================
 class GetPartnerRoleView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -238,7 +265,7 @@ class GetPartnerRoleView(APIView):
 
 
 # ==========================================================
-# 🟢 USER PROFILE
+# 🟢 PROFILE
 # ==========================================================
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
