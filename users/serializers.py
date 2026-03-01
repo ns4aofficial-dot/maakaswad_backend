@@ -6,7 +6,7 @@ User = get_user_model()
 
 
 # ===========================================================
-# ✅ USER PROFILE SERIALIZER (Now Includes KYC Fields)
+# ✅ USER PROFILE SERIALIZER (Includes KYC Fields)
 # ===========================================================
 
 class UserSerializer(serializers.ModelSerializer):
@@ -29,7 +29,6 @@ class UserSerializer(serializers.ModelSerializer):
             'food_license_number',
             'bank_account_number',
             'ifsc_code',
-            'address',
             'aadhaar_image',
             'pan_image',
 
@@ -61,7 +60,6 @@ class PartnerDocumentSerializer(serializers.ModelSerializer):
             "food_license_number",
             "bank_account_number",
             "ifsc_code",
-            "address",
             "aadhaar_image",
             "pan_image",
         ]
@@ -139,11 +137,22 @@ class RegisterSerializer(serializers.ModelSerializer):
         vehicle_number = validated_data.pop("vehicle_number", None)
         city = validated_data.pop("city", None)
 
+        email = validated_data["email"]
+        password = validated_data["password"]
+        phone = validated_data.get("phone", "")
+
+        # ✅ Auto generate username from email
+        username = email.split("@")[0]
+
+        # Prevent duplicate username crash
+        if User.objects.filter(username=username).exists():
+            username = f"{username}_{User.objects.count()}"
+
         user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            phone=validated_data.get('phone', '')
+            username=username,
+            email=email,
+            password=password,
+            phone=phone
         )
 
         user.role = role
