@@ -227,7 +227,7 @@ class PartnerDocumentsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
-    def put(self, request):
+    def post(self, request):
         serializer = PartnerDocumentSerializer(
             request.user,
             data=request.data,
