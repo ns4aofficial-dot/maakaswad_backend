@@ -1,6 +1,7 @@
 ﻿from django.db import models
 from django.conf import settings
 
+
 # ✅ Food Categories
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -12,7 +13,22 @@ class Category(models.Model):
 
 # ✅ Food Items
 class FoodItem(models.Model):
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='food_items')
+
+    # 🔥 NEW FIELD (VERY IMPORTANT)
+    chef = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="food_items",
+        null=True,      # temporarily allow null for migration safety
+        blank=True
+    )
+
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name='food_items'
+    )
+
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=6, decimal_places=2)
@@ -25,8 +41,16 @@ class FoodItem(models.Model):
 
 # ✅ Favorite Items
 class Favorite(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='favorites')
-    food_item = models.ForeignKey(FoodItem, on_delete=models.CASCADE, related_name='favorited_by')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='favorites'
+    )
+    food_item = models.ForeignKey(
+        FoodItem,
+        on_delete=models.CASCADE,
+        related_name='favorited_by'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -43,9 +67,17 @@ class SupportTicket(models.Model):
         ('resolved', 'Resolved'),
     ]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="support_tickets")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="support_tickets"
+    )
     message = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='open'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

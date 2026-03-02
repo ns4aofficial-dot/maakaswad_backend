@@ -11,36 +11,91 @@ from .serializers import (
     SupportTicketSerializer,
 )
 
-# Category List
+
+# ==========================================================
+# 🟢 CATEGORY LIST (PUBLIC)
+# ==========================================================
 class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
 
-# Food Items List
+
+# ==========================================================
+# 🟢 CUSTOMER FOOD LIST (PUBLIC)
+# ==========================================================
 class FoodItemListView(generics.ListAPIView):
     serializer_class = FoodItemSerializer
     permission_classes = [AllowAny]
 
     def get_queryset(self):
         category_id = self.request.query_params.get('category')
-        if category_id:
-            return FoodItem.objects.filter(category__id=category_id, is_available=True)
-        return FoodItem.objects.filter(is_available=True)
 
-# Food Item Detail
+        queryset = FoodItem.objects.filter(is_available=True)
+
+        if category_id:
+            queryset = queryset.filter(category__id=category_id)
+
+        return queryset
+
+
+# ==========================================================
+# 🟢 CUSTOMER FOOD DETAIL
+# ==========================================================
 class FoodItemDetailView(generics.RetrieveAPIView):
     queryset = FoodItem.objects.filter(is_available=True)
     serializer_class = FoodItemSerializer
     permission_classes = [AllowAny]
 
-# Delete Food Item
-class FoodItemDeleteView(generics.DestroyAPIView):
-    queryset = FoodItem.objects.all()
-    serializer_class = FoodItemSerializer
-    permission_classes = [IsAdminUser]
 
-# Favorite List
+# ==========================================================
+# 🔵 CHEF - VIEW OWN MENU
+# ==========================================================
+class ChefFoodItemListCreateView(generics.ListCreateAPIView):
+    serializer_class = FoodItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.role != "chef":
+            return FoodItem.objects.none()
+
+        return FoodItem.objects.filter(chef=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(chef=self.request.user)
+
+
+# ==========================================================
+# 🔵 CHEF - UPDATE OWN ITEM
+# ==========================================================
+class ChefFoodItemDetailView(generics.RetrieveUpdateAPIView):
+    serializer_class = FoodItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.role != "chef":
+            return FoodItem.objects.none()
+
+        return FoodItem.objects.filter(chef=self.request.user)
+
+
+# ==========================================================
+# 🔵 CHEF - DELETE OWN ITEM
+# ==========================================================
+class ChefFoodItemDeleteView(generics.DestroyAPIView):
+    serializer_class = FoodItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.role != "chef":
+            return FoodItem.objects.none()
+
+        return FoodItem.objects.filter(chef=self.request.user)
+
+
+# ==========================================================
+# ⭐ FAVORITES
+# ==========================================================
 class FavoriteListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -49,7 +104,7 @@ class FavoriteListView(APIView):
         serializer = FavoriteSerializer(favorites, many=True)
         return Response(serializer.data)
 
-# Toggle Favorite
+
 class ToggleFavoriteView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -60,12 +115,17 @@ class ToggleFavoriteView(APIView):
             return Response({'error': 'Food item not found'}, status=status.HTTP_404_NOT_FOUND)
 
         favorite, created = Favorite.objects.get_or_create(user=request.user, food_item=food_item)
+
         if not created:
             favorite.delete()
             return Response({'removed': f'{food_item.name} removed from favorites'})
+
         return Response({'added': f'{food_item.name} added to favorites'})
 
-# Support Ticket
+
+# ==========================================================
+# 🎟 SUPPORT TICKET
+# ==========================================================
 class SupportTicketListCreateView(generics.ListCreateAPIView):
     serializer_class = SupportTicketSerializer
     permission_classes = [IsAuthenticated]
