@@ -18,8 +18,9 @@ from .views import (
 
     # Chef
     ChefOrderListView,
-    ChefAcceptOrderView,   # ✅ Added
+    ChefAcceptOrderView,
     ChefUpdateStatusView,
+    ChefEarningsView,   # ✅ NEW IMPORT
 
     # Captain
     CaptainOrderListView,
@@ -54,8 +55,11 @@ urlpatterns = [
     # 👩‍🍳 CHEF APIs
     # ======================================================
     path('chef/orders/', ChefOrderListView.as_view(), name='chef-orders'),
-    path('chef/accept/<int:order_id>/', ChefAcceptOrderView.as_view(), name='chef-accept-order'),  # ✅ Added
+    path('chef/accept/<int:order_id>/', ChefAcceptOrderView.as_view(), name='chef-accept-order'),
     path('chef/update-status/<int:order_id>/', ChefUpdateStatusView.as_view(), name='chef-update-status'),
+
+    # ⭐ CHEF EARNINGS
+    path('chef/earnings/', ChefEarningsView.as_view(), name='chef-earnings'),
 
     # ======================================================
     # 🚴 CAPTAIN APIs

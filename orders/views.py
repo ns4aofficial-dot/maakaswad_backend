@@ -2,7 +2,7 @@
 from datetime import timedelta
 from django.utils.timezone import now
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -82,7 +82,7 @@ class CancelOrderView(APIView):
 
 
 # ==========================================================
-# 👩‍🍳 CHEF - View Orders (FIXED FILTER)
+# 👩‍🍳 CHEF - View Orders
 # ==========================================================
 class ChefOrderListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -99,7 +99,7 @@ class ChefOrderListView(generics.ListAPIView):
 
 
 # ==========================================================
-# 👩‍🍳 CHEF - Accept Order (LOCK SYSTEM)
+# 👩‍🍳 CHEF - Accept Order
 # ==========================================================
 class ChefAcceptOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -198,7 +198,7 @@ class CaptainUpdateStatusView(APIView):
 
 
 # ==========================================================
-# 🚴 Assign Captain (Only Assigned Chef Can Do)
+# 🚴 Assign Captain
 # ==========================================================
 class AssignCaptainView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -301,3 +301,45 @@ class DeliveryAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return DeliveryAddress.objects.filter(user=self.request.user)
+
+
+# ==========================================================
+# 💰 CHEF EARNINGS
+# ==========================================================
+class ChefEarningsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+
+        if request.user.role != "chef":
+            return Response({"detail": "Only chef allowed."}, status=403)
+
+        delivered_orders = Order.objects.filter(
+            assigned_chef=request.user,
+            status="delivered"
+        )
+
+        total_earnings = delivered_orders.aggregate(
+            total=Sum("total_amount")
+        )["total"] or 0
+
+        today_earnings = delivered_orders.filter(
+            created_at__date=now().date()
+        ).aggregate(
+            total=Sum("total_amount")
+        )["total"] or 0
+
+        week_earnings = delivered_orders.filter(
+            created_at__gte=now() - timedelta(days=7)
+        ).aggregate(
+            total=Sum("total_amount")
+        )["total"] or 0
+
+        orders_completed = delivered_orders.count()
+
+        return Response({
+            "today": today_earnings,
+            "week": week_earnings,
+            "total": total_earnings,
+            "orders": orders_completed
+        })
