@@ -170,8 +170,9 @@ class LoginView(APIView):
 
 
 # ==========================================================
-# 🔵 PARTNER LOGIN
+# 🔵 PARTNER LOGIN (FIXED)
 # ==========================================================
+
 class PartnerLoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -191,14 +192,12 @@ class PartnerLoginView(APIView):
         if not user or not user.check_password(password):
             return Response({"detail": "Invalid credentials"}, status=401)
 
-        if user.role not in ["chef", "captain",None]:
+        # Only partners allowed
+        if user.role not in ["chef", "captain", None]:
             return Response({"detail": "Not a partner account"}, status=403)
 
-        if not user.registration_paid:
-            return Response({"detail": "Registration fee not paid"}, status=403)
-
-        if not user.is_approved:
-            return Response({"detail": "Waiting for admin approval"}, status=403)
+        # 🚀 IMPORTANT: Do NOT block login for payment or approval
+        # Flutter will handle flow using role API
 
         return Response(generate_jwt(user), status=200)
 
