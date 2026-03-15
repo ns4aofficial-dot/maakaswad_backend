@@ -128,10 +128,14 @@ class PartnerRegisterView(APIView):
 
         if serializer.is_valid():
             user = serializer.save()
-            user.role = "chef"
+
+            # ⭐ role initially empty so role page open avuthundi
+            user.role = None
+
             user.is_approved = False
             user.registration_paid = False
             user.save()
+
             return Response(generate_jwt(user), status=201)
 
         return Response(serializer.errors, status=400)
@@ -187,7 +191,7 @@ class PartnerLoginView(APIView):
         if not user or not user.check_password(password):
             return Response({"detail": "Invalid credentials"}, status=401)
 
-        if user.role not in ["chef", "captain"]:
+        if user.role not in ["chef", "captain",None]:
             return Response({"detail": "Not a partner account"}, status=403)
 
         if not user.registration_paid:
