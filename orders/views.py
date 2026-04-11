@@ -208,10 +208,10 @@ class AssignCaptainView(APIView):
         if request.user.role != "chef":
             return Response({"detail": "Only chef allowed."}, status=403)
 
+        # ✅ FIXED (removed assigned_chef restriction)
         order = get_object_or_404(
             Order,
-            id=order_id,
-            assigned_chef=request.user
+            id=order_id
         )
 
         captain_id = request.data.get("captain_id")
