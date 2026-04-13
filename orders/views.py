@@ -168,7 +168,7 @@ class CaptainOrderListView(generics.ListAPIView):
 
 
 # ==========================================================
-# 🚴 CAPTAIN - Update Status
+# 🚴 CAPTAIN - Update Status (🔥 FIXED)
 # ==========================================================
 class CaptainUpdateStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -191,7 +191,23 @@ class CaptainUpdateStatusView(APIView):
         )
 
         if serializer.is_valid():
-            serializer.save()
+
+            old_status = order.status   # ✅ track before update
+
+            serializer.save()           # ✅ update happens
+
+            # 🔥 MAIN FIX → ADD EARNINGS
+            if order.status == "delivered" and old_status != "delivered":
+
+                print("🔥 DELIVERY COMPLETED → ADDING EARNINGS")
+
+                from decimal import Decimal
+
+                captain_share = Decimal(order.total_amount) * Decimal("0.8")
+
+                request.user.earnings += captain_share
+                request.user.save()
+
             return Response({"detail": "Order status updated by captain."})
 
         return Response(serializer.errors, status=400)
