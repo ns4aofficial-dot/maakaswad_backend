@@ -357,10 +357,15 @@ class CaptainEarningsView(APIView):
         if request.user.role != "captain":
             return Response({"detail": "Only captain allowed."}, status=403)
 
+        # ✅ FIXED FILTER (case insensitive)
         delivered_orders = Order.objects.filter(
             assigned_captain=request.user,
-            status="delivered"   # ⚠️ must match your DB value
+            status__iexact="delivered"
         )
+
+        # 🔍 DEBUG (optional - remove later)
+        print("ALL ORDERS:", Order.objects.all().values("id", "status"))
+        print("DELIVERED:", delivered_orders.values("id", "status"))
 
         total_earnings = delivered_orders.aggregate(
             total=Sum("total_amount")
