@@ -196,39 +196,41 @@ class CaptainUpdateStatusView(APIView):
 
         return Response(serializer.errors, status=400)
 
-
 # ==========================================================
-# 🚴 Assign Captain
+# 🚴 Assign Captain (AUTO ASSIGN 🔥)
 # ==========================================================
 class AssignCaptainView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, order_id):
 
+        # Only chef can assign
         if request.user.role != "chef":
             return Response({"detail": "Only chef allowed."}, status=403)
 
-        # ✅ FIXED (removed assigned_chef restriction)
-        order = get_object_or_404(
-            Order,
-            id=order_id
-        )
-
-        captain_id = request.data.get("captain_id")
+        # Get order
+        order = get_object_or_404(Order, id=order_id)
 
         from users.models import User
-        captain = get_object_or_404(
-            User,
-            id=captain_id,
-            role="captain"
-        )
 
+        # 🔥 AUTO SELECT FIRST AVAILABLE CAPTAIN
+        captain = User.objects.filter(role="captain").first()
+
+        if not captain:
+            return Response(
+                {"detail": "No captain available"},
+                status=404
+            )
+
+        # Assign captain
         order.assigned_captain = captain
         order.status = "assigned"
         order.save(update_fields=["assigned_captain", "status"])
 
-        return Response({"detail": "Captain assigned successfully."})
-
+        return Response({
+            "detail": "Captain assigned automatically",
+            "captain": captain.username
+        })
 
 # ==========================================================
 # 🚚 Track Order (Customer)
