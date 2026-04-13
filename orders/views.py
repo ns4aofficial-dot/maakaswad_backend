@@ -345,3 +345,44 @@ class ChefEarningsView(APIView):
             "total": total_earnings,
             "orders": orders_completed
         })
+
+    # ==========================================================
+# 🚴 CAPTAIN EARNINGS
+# ==========================================================
+class CaptainEarningsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+
+        if request.user.role != "captain":
+            return Response({"detail": "Only captain allowed."}, status=403)
+
+        delivered_orders = Order.objects.filter(
+            assigned_captain=request.user,
+            status="delivered"   # ⚠️ must match your DB value
+        )
+
+        total_earnings = delivered_orders.aggregate(
+            total=Sum("total_amount")
+        )["total"] or 0
+
+        today_earnings = delivered_orders.filter(
+            created_at__date=now().date()
+        ).aggregate(
+            total=Sum("total_amount")
+        )["total"] or 0
+
+        week_earnings = delivered_orders.filter(
+            created_at__gte=now() - timedelta(days=7)
+        ).aggregate(
+            total=Sum("total_amount")
+        )["total"] or 0
+
+        orders_completed = delivered_orders.count()
+
+        return Response({
+            "today": today_earnings,
+            "week": week_earnings,
+            "total": total_earnings,
+            "orders": orders_completed
+        })
