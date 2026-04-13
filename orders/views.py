@@ -168,7 +168,7 @@ class CaptainOrderListView(generics.ListAPIView):
 
 
 # ==========================================================
-# 🚴 CAPTAIN - Update Status (🔥 FIXED)
+# 🚴 CAPTAIN - Update Status (🔥 KEEP SAME)
 # ==========================================================
 class CaptainUpdateStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -192,14 +192,11 @@ class CaptainUpdateStatusView(APIView):
 
         if serializer.is_valid():
 
-            old_status = order.status   # ✅ track before update
+            old_status = order.status
+            serializer.save()
 
-            serializer.save()           # ✅ update happens
-
-            # 🔥 MAIN FIX → ADD EARNINGS
+            # 🔥 Earnings add (keep as is)
             if order.status == "delivered" and old_status != "delivered":
-
-                print("🔥 DELIVERY COMPLETED → ADDING EARNINGS")
 
                 from decimal import Decimal
 
@@ -212,33 +209,26 @@ class CaptainUpdateStatusView(APIView):
 
         return Response(serializer.errors, status=400)
 
+
 # ==========================================================
-# 🚴 Assign Captain (AUTO ASSIGN 🔥)
+# 🚴 Assign Captain
 # ==========================================================
 class AssignCaptainView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, order_id):
 
-        # Only chef can assign
         if request.user.role != "chef":
             return Response({"detail": "Only chef allowed."}, status=403)
 
-        # Get order
         order = get_object_or_404(Order, id=order_id)
 
         from users.models import User
-
-        # 🔥 AUTO SELECT FIRST AVAILABLE CAPTAIN
         captain = User.objects.filter(role="captain").first()
 
         if not captain:
-            return Response(
-                {"detail": "No captain available"},
-                status=404
-            )
+            return Response({"detail": "No captain available"}, status=404)
 
-        # Assign captain
         order.assigned_captain = captain
         order.status = "assigned"
         order.save(update_fields=["assigned_captain", "status"])
@@ -248,8 +238,9 @@ class AssignCaptainView(APIView):
             "captain": captain.username
         })
 
+
 # ==========================================================
-# 🚚 Track Order (Customer)
+# 🚚 Track Order
 # ==========================================================
 class TrackOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -362,8 +353,9 @@ class ChefEarningsView(APIView):
             "orders": orders_completed
         })
 
-    # ==========================================================
-# 🚴 CAPTAIN EARNINGS
+
+# ==========================================================
+# 🚴 CAPTAIN EARNINGS (🔥 FINAL FIXED)
 # ==========================================================
 class CaptainEarningsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -373,16 +365,12 @@ class CaptainEarningsView(APIView):
         if request.user.role != "captain":
             return Response({"detail": "Only captain allowed."}, status=403)
 
-        # ✅ FIXED FILTER (case insensitive)
         delivered_orders = Order.objects.filter(
             assigned_captain=request.user,
-            status__iexact="delivered"
+            status="delivered"
         )
 
-        # 🔍 DEBUG (optional - remove later)
-        print("ALL ORDERS:", Order.objects.all().values("id", "status"))
-        print("DELIVERED:", delivered_orders.values("id", "status"))
-
+        # ✅ Existing (keep)
         total_earnings = delivered_orders.aggregate(
             total=Sum("total_amount")
         )["total"] or 0
@@ -399,11 +387,32 @@ class CaptainEarningsView(APIView):
             total=Sum("total_amount")
         )["total"] or 0
 
-        orders_completed = delivered_orders.count()
+        # 🔥 NEW CORRECT CAPTAIN EARNING (10%)
+        from decimal import Decimal
+
+        captain_total = sum(
+            Decimal(o.total_amount) * Decimal("0.10")
+            for o in delivered_orders
+        )
+
+        captain_today = sum(
+            Decimal(o.total_amount) * Decimal("0.10")
+            for o in delivered_orders.filter(created_at__date=now().date())
+        )
+
+        captain_week = sum(
+            Decimal(o.total_amount) * Decimal("0.10")
+            for o in delivered_orders.filter(created_at__gte=now() - timedelta(days=7))
+        )
 
         return Response({
             "today": today_earnings,
             "week": week_earnings,
             "total": total_earnings,
-            "orders": orders_completed
+            "orders": delivered_orders.count(),
+
+            # 🔥 USE THIS IN FRONTEND
+            "captain_today": captain_today,
+            "captain_week": captain_week,
+            "captain_total": captain_total,
         })

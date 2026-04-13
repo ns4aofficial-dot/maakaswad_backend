@@ -93,6 +93,13 @@ class Order(models.Model):
 
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
 
+    # ✅ NEW FIELD (ADDED FOR CAPTAIN EARNINGS)
+    delivery_fee = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=30.00
+    )
+
     # Live tracking (Captain)
     driver_latitude = models.DecimalField(
         max_digits=9,
