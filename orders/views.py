@@ -99,7 +99,7 @@ class ChefOrderListView(generics.ListAPIView):
 
 
 # ==========================================================
-# 👩‍🍳 CHEF - Accept Order
+# 👩‍🍳 CHEF - Accept Order (🔥 UPDATED)
 # ==========================================================
 class ChefAcceptOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -114,11 +114,20 @@ class ChefAcceptOrderView(APIView):
         if order.status != "pending":
             return Response({"detail": "Order already taken."}, status=400)
 
-        order.assigned_chef = request.user
-        order.status = "accepted"
-        order.save(update_fields=["assigned_chef", "status"])
+        from users.models import User
 
-        return Response({"detail": "Order accepted successfully."})
+        # 🔥 AUTO ASSIGN CAPTAIN
+        captain = User.objects.filter(role="captain").first()
+
+        order.assigned_chef = request.user
+        order.assigned_captain = captain   # ✅ FIX ADDED
+        order.status = "accepted"
+
+        order.save(update_fields=["assigned_chef", "assigned_captain", "status"])
+
+        return Response({
+            "detail": "Order accepted & captain assigned"
+        })
 
 
 # ==========================================================
@@ -168,7 +177,7 @@ class CaptainOrderListView(generics.ListAPIView):
 
 
 # ==========================================================
-# 🚴 CAPTAIN - Update Status (🔥 KEEP SAME)
+# 🚴 CAPTAIN - Update Status (UNCHANGED)
 # ==========================================================
 class CaptainUpdateStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -195,7 +204,6 @@ class CaptainUpdateStatusView(APIView):
             old_status = order.status
             serializer.save()
 
-            # 🔥 Earnings add (keep as is)
             if order.status == "delivered" and old_status != "delivered":
 
                 from decimal import Decimal
@@ -355,7 +363,7 @@ class ChefEarningsView(APIView):
 
 
 # ==========================================================
-# 🚴 CAPTAIN EARNINGS (🔥 FINAL FIXED)
+# 🚴 CAPTAIN EARNINGS
 # ==========================================================
 class CaptainEarningsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -370,24 +378,6 @@ class CaptainEarningsView(APIView):
             status="delivered"
         )
 
-        # ✅ Existing (keep)
-        total_earnings = delivered_orders.aggregate(
-            total=Sum("total_amount")
-        )["total"] or 0
-
-        today_earnings = delivered_orders.filter(
-            created_at__date=now().date()
-        ).aggregate(
-            total=Sum("total_amount")
-        )["total"] or 0
-
-        week_earnings = delivered_orders.filter(
-            created_at__gte=now() - timedelta(days=7)
-        ).aggregate(
-            total=Sum("total_amount")
-        )["total"] or 0
-
-        # 🔥 NEW CORRECT CAPTAIN EARNING (10%)
         from decimal import Decimal
 
         captain_total = sum(
@@ -406,13 +396,8 @@ class CaptainEarningsView(APIView):
         )
 
         return Response({
-            "today": today_earnings,
-            "week": week_earnings,
-            "total": total_earnings,
-            "orders": delivered_orders.count(),
-
-            # 🔥 USE THIS IN FRONTEND
             "captain_today": captain_today,
             "captain_week": captain_week,
             "captain_total": captain_total,
+            "orders": delivered_orders.count(),
         })
