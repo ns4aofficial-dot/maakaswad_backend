@@ -99,7 +99,7 @@ class ChefOrderListView(generics.ListAPIView):
 
 
 # ==========================================================
-# 👩‍🍳 CHEF - Accept Order (🔥 UPDATED)
+# 👩‍🍳 CHEF - Accept Order (🔥 UPDATED ONLY)
 # ==========================================================
 class ChefAcceptOrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -120,7 +120,7 @@ class ChefAcceptOrderView(APIView):
         captain = User.objects.filter(role="captain").first()
 
         order.assigned_chef = request.user
-        order.assigned_captain = captain   # ✅ FIX ADDED
+        order.assigned_captain = captain   # ✅ ADDED
         order.status = "accepted"
 
         order.save(update_fields=["assigned_chef", "assigned_captain", "status"])
@@ -177,7 +177,7 @@ class CaptainOrderListView(generics.ListAPIView):
 
 
 # ==========================================================
-# 🚴 CAPTAIN - Update Status (UNCHANGED)
+# 🚴 CAPTAIN - Update Status (🔥 UPDATED ONLY)
 # ==========================================================
 class CaptainUpdateStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -204,13 +204,9 @@ class CaptainUpdateStatusView(APIView):
             old_status = order.status
             serializer.save()
 
+            # 🔥 EARNINGS FIX
             if order.status == "delivered" and old_status != "delivered":
-
-                from decimal import Decimal
-
-                captain_share = Decimal(order.total_amount) * Decimal("0.8")
-
-                request.user.earnings += captain_share
+                request.user.total_earnings += order.delivery_fee
                 request.user.save()
 
             return Response({"detail": "Order status updated by captain."})
@@ -219,7 +215,7 @@ class CaptainUpdateStatusView(APIView):
 
 
 # ==========================================================
-# 🚴 Assign Captain
+# 🚴 Assign Captain (UNCHANGED)
 # ==========================================================
 class AssignCaptainView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -321,7 +317,7 @@ class DeliveryAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 # ==========================================================
-# 💰 CHEF EARNINGS
+# 💰 CHEF EARNINGS (UNCHANGED)
 # ==========================================================
 class ChefEarningsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -363,7 +359,7 @@ class ChefEarningsView(APIView):
 
 
 # ==========================================================
-# 🚴 CAPTAIN EARNINGS
+# 🚴 CAPTAIN EARNINGS (🔥 UPDATED ONLY)
 # ==========================================================
 class CaptainEarningsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -378,20 +374,16 @@ class CaptainEarningsView(APIView):
             status="delivered"
         )
 
-        from decimal import Decimal
-
-        captain_total = sum(
-            Decimal(o.total_amount) * Decimal("0.10")
-            for o in delivered_orders
-        )
+        # 🔥 DELIVERY FEE BASED EARNINGS
+        captain_total = sum(o.delivery_fee for o in delivered_orders)
 
         captain_today = sum(
-            Decimal(o.total_amount) * Decimal("0.10")
+            o.delivery_fee
             for o in delivered_orders.filter(created_at__date=now().date())
         )
 
         captain_week = sum(
-            Decimal(o.total_amount) * Decimal("0.10")
+            o.delivery_fee
             for o in delivered_orders.filter(created_at__gte=now() - timedelta(days=7))
         )
 
