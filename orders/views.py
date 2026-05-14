@@ -121,7 +121,7 @@ class ChefAcceptOrderView(APIView):
 
         order.assigned_chef = request.user
         order.assigned_captain = captain   # ✅ ADDED
-        order.status = "accepted"
+        order.status = "assigned"
 
         order.save(update_fields=["assigned_chef", "assigned_captain", "status"])
 
