@@ -114,19 +114,14 @@ class ChefAcceptOrderView(APIView):
         if order.status != "pending":
             return Response({"detail": "Order already taken."}, status=400)
 
-        from users.models import User
-
-        # 🔥 AUTO ASSIGN CAPTAIN
-        captain = User.objects.filter(role="captain").first()
-
+        # Assign only chef
         order.assigned_chef = request.user
-        order.assigned_captain = captain   # ✅ ADDED
-        order.status = "assigned"
+        order.status = "accepted"
 
-        order.save(update_fields=["assigned_chef", "assigned_captain", "status"])
+        order.save(update_fields=["assigned_chef", "status"])
 
         return Response({
-            "detail": "Order accepted & captain assigned"
+            "detail": "Order accepted successfully"
         })
 
 
