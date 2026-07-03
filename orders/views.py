@@ -404,24 +404,39 @@ class CaptainDashboardView(APIView):
 
         # Stats
         new_orders = orders.filter(status="assigned").count()
-        in_progress = orders.filter(status__in=["picked_up", "en_route"]).count()
+        in_progress = orders.filter(
+            status__in=["picked_up", "out_for_delivery"]
+        ).count()
         delivered = orders.filter(status="delivered").count()
 
-        # Earnings today
         earnings_today = sum(
-            o.delivery_fee for o in orders.filter(
+            o.delivery_fee
+            for o in orders.filter(
                 status="delivered",
                 created_at__date=now().date()
             )
         )
 
-        # Active orders (not yet delivered)
         active_orders = orders.exclude(status="delivered")
 
+        # 👇👇 EE DEBUG CODE IKKADA ADD CHEYYI 👇👇
+        print("Captain ID:", request.user.id)
+        print("Captain:", request.user.username)
+        print("Assigned Orders:", orders.count())
+
+        for order in orders:
+            print(
+                "Order:",
+                order.id,
+                order.status,
+                order.assigned_captain_id,
+            )
+
+        # 👇 RETURN
         return Response({
             "new_orders": new_orders,
             "in_progress": in_progress,
             "delivered": delivered,
             "earnings_today": earnings_today,
-            "active_orders": OrderSerializer(active_orders, many=True).data
+            "active_orders": OrderSerializer(active_orders, many=True).data,
         })
