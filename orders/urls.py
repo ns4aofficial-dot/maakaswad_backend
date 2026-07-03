@@ -26,7 +26,8 @@ from .views import (
     CaptainOrderListView,
     CaptainUpdateStatusView,
     AssignCaptainView,
-    CaptainEarningsView,   # ✅ ADDED
+    CaptainEarningsView,
+    CaptainDashboardView,   # ✅ NEWLY ADDED
 )
 
 urlpatterns = [
@@ -71,6 +72,9 @@ urlpatterns = [
     # Assign Captain
     path('assign-captain/<int:order_id>/', AssignCaptainView.as_view(), name='assign-captain'),
 
-    # ⭐ CAPTAIN EARNINGS (🔥 NEW)
+    # ⭐ CAPTAIN EARNINGS
     path('captain/earnings/', CaptainEarningsView.as_view(), name='captain-earnings'),
+
+    # ⭐ CAPTAIN DASHBOARD (🔥 NEW)
+    path('captain/dashboard/', CaptainDashboardView.as_view(), name='captain-dashboard'),
 ]

@@ -388,3 +388,40 @@ class CaptainEarningsView(APIView):
             "captain_total": captain_total,
             "orders": delivered_orders.count(),
         })
+
+    # ==========================================================
+# 🚴 CAPTAIN DASHBOARD
+# ==========================================================
+class CaptainDashboardView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != "captain":
+            return Response({"detail": "Only captain allowed."}, status=403)
+
+        # Orders assigned to this captain
+        orders = Order.objects.filter(assigned_captain=request.user)
+
+        # Stats
+        new_orders = orders.filter(status="assigned").count()
+        in_progress = orders.filter(status__in=["picked_up", "en_route"]).count()
+        delivered = orders.filter(status="delivered").count()
+
+        # Earnings today
+        earnings_today = sum(
+            o.delivery_fee for o in orders.filter(
+                status="delivered",
+                created_at__date=now().date()
+            )
+        )
+
+        # Active orders (not yet delivered)
+        active_orders = orders.exclude(status="delivered")
+
+        return Response({
+            "new_orders": new_orders,
+            "in_progress": in_progress,
+            "delivered": delivered,
+            "earnings_today": earnings_today,
+            "active_orders": OrderSerializer(active_orders, many=True).data
+        })
