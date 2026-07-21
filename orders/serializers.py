@@ -259,7 +259,7 @@ class ChefStatusUpdateSerializer(serializers.ModelSerializer):
 
 
 # ==========================================================
-# 🚴 Captain Status Update
+# 🚴 Captain Status Update (with UI label mapping)
 # ==========================================================
 class CaptainStatusUpdateSerializer(serializers.ModelSerializer):
 
@@ -268,7 +268,40 @@ class CaptainStatusUpdateSerializer(serializers.ModelSerializer):
         fields = ['status']
 
     def validate_status(self, value):
+        """
+        Accept canonical statuses or common UI labels (case-insensitive).
+        Map UI-friendly labels (including emojis) to canonical backend values.
+        """
 
+        # Mapping of common UI labels -> canonical backend status
+        mapping = {
+            # availability / UI labels that might be used in the app
+            "online": "assigned",
+            "online 🚀": "assigned",
+            "available": "assigned",
+            "active": "assigned",
+
+            # pickup / delivery lifecycle labels
+            "picked up": "picked_up",
+            "picked_up": "picked_up",
+            "pickedup": "picked_up",
+            "on the way": "out_for_delivery",
+            "on the way 🚚": "out_for_delivery",
+            "out_for_delivery": "out_for_delivery",
+            "out for delivery": "out_for_delivery",
+            "delivered": "delivered",
+            "delivered ✅": "delivered",
+            "assigned": "assigned",
+        }
+
+        # Normalize incoming value to string and lower-case for matching
+        if isinstance(value, str):
+            key = value.strip().lower()
+            # direct mapping match
+            if key in mapping:
+                return mapping[key]
+
+        # If value already matches allowed canonical statuses, accept it
         allowed = [
             'assigned',
             'picked_up',
@@ -276,12 +309,13 @@ class CaptainStatusUpdateSerializer(serializers.ModelSerializer):
             'delivered'
         ]
 
-        if value not in allowed:
-            raise serializers.ValidationError(
-                "Invalid status for captain."
-            )
+        if value in allowed:
+            return value
 
-        return value
+        # If nothing matched, raise the same validation error as before
+        raise serializers.ValidationError(
+            "Invalid status for captain."
+        )
 
 
 # ==========================================================

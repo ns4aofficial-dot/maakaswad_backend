@@ -337,9 +337,7 @@ class ChefEarningsView(APIView):
             total=Sum("total_amount")
         )["total"] or 0
 
-        week_earnings = delivered_orders.filter(
-            created_at__gte=now() - timedelta(days=7)
-        ).aggregate(
+        week_earnings = delivered_orders.filter(created_at__gte=now() - timedelta(days=7)).aggregate(
             total=Sum("total_amount")
         )["total"] or 0
 
@@ -389,7 +387,8 @@ class CaptainEarningsView(APIView):
             "orders": delivered_orders.count(),
         })
 
-    # ==========================================================
+
+# ==========================================================
 # 🚴 CAPTAIN DASHBOARD
 # ==========================================================
 class CaptainDashboardView(APIView):
