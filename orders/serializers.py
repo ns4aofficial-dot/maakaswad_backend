@@ -70,6 +70,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     driver_location = serializers.SerializerMethodField()
     destination = serializers.SerializerMethodField()
+    pickup_location = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -83,6 +84,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'status',
             'total_amount',
             'driver_location',
+            'pickup_location',
             'destination',
             'items'
         ]
@@ -94,6 +96,36 @@ class OrderSerializer(serializers.ModelSerializer):
                 "latitude": float(obj.driver_latitude),
                 "longitude": float(obj.driver_longitude)
             }
+        return None
+
+    # Pickup location (chef / restaurant)
+    def get_pickup_location(self, obj):
+        """
+        Returns pickup coordinates if available on the Order model (pickup_latitude/pickup_longitude),
+        or attempts to derive from a related restaurant/chef object if present.
+        """
+        # Prefer explicit order pickup fields
+        lat = getattr(obj, "pickup_latitude", None)
+        lng = getattr(obj, "pickup_longitude", None)
+
+        if lat is not None and lng is not None:
+            try:
+                return {"latitude": float(lat), "longitude": float(lng)}
+            except (TypeError, ValueError):
+                return None
+
+        # Fallback: if order has a related restaurant/chef with coordinates
+        # (adjust field names according to your models if different)
+        restaurant = getattr(obj, "restaurant", None) or getattr(obj, "chef", None)
+        if restaurant:
+            rlat = getattr(restaurant, "latitude", None) or getattr(restaurant, "lat", None)
+            rlng = getattr(restaurant, "longitude", None) or getattr(restaurant, "lng", None)
+            if rlat is not None and rlng is not None:
+                try:
+                    return {"latitude": float(rlat), "longitude": float(rlng)}
+                except (TypeError, ValueError):
+                    return None
+
         return None
 
     # Destination location
@@ -131,6 +163,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'total_amount',
             'driver_latitude',
             'driver_longitude',
+            'pickup_latitude',
+            'pickup_longitude',
             'items'
         ]
 

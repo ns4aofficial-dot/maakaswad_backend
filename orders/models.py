@@ -115,6 +115,27 @@ class Order(models.Model):
         blank=True
     )
 
+    # =========================
+    # Pickup location fields
+    # =========================
+    # Optional human readable pickup label (restaurant/chef name)
+    pickup_name = models.CharField(max_length=200, null=True, blank=True)
+
+    # Explicit pickup coordinates (chef / restaurant)
+    pickup_latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True
+    )
+
+    pickup_longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True
+    )
+
     def __str__(self):
         return f"Order #{self.id} - {self.status.upper()}"
 
